@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 import { CONSTRUCTOR_ARGS, CONTRACT_ABI, CONTRACT_BYTECODE } from "@/lib/contract";
 import { getAddress } from "viem";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 export default function ProfilePage() {
   const { isFrameReady, setFrameReady, context } = useMiniKit();
@@ -209,6 +210,9 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
+
+        {/* Theme Switcher */}
+        <ThemeSwitcher />
 
         {/* Contract Deployment Section */}
         <div className="bg-card rounded-2xl p-6 border border-border">
