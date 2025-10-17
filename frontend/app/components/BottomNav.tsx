@@ -30,10 +30,11 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-xl border-t border-border z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+    <nav
+      className="fixed bottom-0 left-0 right-0 glass border-t border-border/50 z-50 shadow-[0_-4px_30px_rgba(0,0,0,0.1)]">
       <div className="max-w-screen-xl mx-auto safe-bottom">
         <div className="flex items-center justify-around px-4 py-2">
-          {navItems.map((item) => {
+          {navItems.map((item, index) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
 
@@ -45,21 +46,24 @@ export default function BottomNav() {
               >
                 <button
                   className={`
-                    flex flex-col items-center justify-center gap-1.5 py-2 px-3 rounded-xl transition-all duration-200 min-w-[60px]
+                    relative flex flex-col items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl transition-all duration-200 min-w-[60px]
                     ${isActive
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground active:scale-95"
-                    }
+                    ? "bg-purple-100"
+                    : "text-muted-foreground hover:text-foreground active:scale-95"
+                  }
                   `}
                 >
-                  <div className={`relative ${isActive ? "scale-110" : ""} transition-transform`}>
-                    <Icon className="h-6 w-6" strokeWidth={isActive ? 2.5 : 2} />
-                    {isActive && (
-                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
-                    )}
+                  {/* Icon */}
+                  <div className={`relative z-10 transition-all duration-200`}>
+                    <Icon
+                      className={`h-6 w-6 ${isActive ? "text-purple-600" : ""}`}
+                      strokeWidth={isActive ? 2.5 : 2}
+                    />
                   </div>
-                  <span className={`text-xs font-semibold transition-all ${
-                    isActive ? "font-bold" : "font-medium"
+
+                  {/* Label */}
+                  <span className={`relative z-10 text-xs transition-all duration-200 whitespace-nowrap ${
+                    isActive ? "font-bold text-purple-600" : "font-medium"
                   }`}>
                     {item.label}
                   </span>

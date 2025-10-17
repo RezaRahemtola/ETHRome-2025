@@ -17,36 +17,45 @@ export default function WelcomePage() {
     {
       icon: "🎫",
       title: "Create Events Freely",
-      description: "Launch your own events in minutes. No middlemen, just you and your community."
+      description: "Launch your own events in minutes.\nNo middlemen, just you and your community.",
+      gradient: "from-primary to-accent"
     },
     {
       icon: "🔐",
       title: "Secure & Transparent",
-      description: "Every registration lives onchain. Verifiable, immutable, and trustworthy."
+      description: "Every registration lives onchain.\nVerifiable, immutable, and trustworthy.",
+      gradient: "from-accent to-secondary"
     },
     {
       icon: "⚡",
       title: "Instant Registration",
-      description: "Register for events with one tap. Your wallet is your ticket."
+      description: "Register for events with one tap.\nYour wallet is your ticket.",
+      gradient: "from-secondary to-primary"
     }
   ];
 
   return (
-    <div className="flex flex-col bg-background safe-bottom overflow-hidden">
-      {/* Hero Section */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto">
+    <div className="flex flex-col h-screen bg-background safe-bottom overflow-hidden relative">
+      {/* Gradient background */}
+      <div className="absolute inset-0 gradient-mesh opacity-40" />
+
+      {/* Content centered vertically */}
+      <div className="relative flex-1 flex flex-col items-center justify-center px-6 py-6 overflow-y-auto">
         <div className="w-full max-w-md space-y-6">
-          {/* Logo/Icon */}
+          {/* Logo/Icon with gradient */}
           <div className="flex justify-center">
-            <div
-              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary via-accent to-secondary flex items-center justify-center text-3xl shadow-lg">
-              🎪
+            <div className="relative">
+              <div
+                className="w-16 h-16 rounded-2xl gradient-primary-secondary flex items-center justify-center text-3xl shadow-2xl shadow-primary/30">
+                🎪
+              </div>
+              <div className="absolute -inset-1 rounded-2xl gradient-primary-secondary opacity-50 blur-xl -z-10" />
             </div>
           </div>
 
-          {/* Title */}
+          {/* Title with gradient text */}
           <div className="space-y-2 text-center">
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h1 className="text-4xl font-bold tracking-tight text-gradient">
               Raduno
             </h1>
             <p className="text-base text-muted-foreground">
@@ -54,19 +63,24 @@ export default function WelcomePage() {
             </p>
           </div>
 
-          {/* Benefits Grid */}
-          <div className="grid grid-cols-1 gap-3 pt-2">
+          {/* Benefits Grid with glass morphism */}
+          <div className="grid grid-cols-1 gap-3">
             {benefits.map((benefit, index) => (
-              <div key={index} className="text-left p-4 rounded-xl bg-card border border-border">
+              <div
+                key={index}
+                className="group text-left p-4 rounded-xl glass-card hover-lift"
+              >
                 <div className="flex items-start gap-3">
-                  <div className="text-2xl flex-shrink-0">
+                  <div
+                    className={`w-10 h-10 rounded-lg bg-gradient-to-br ${benefit.gradient} flex items-center justify-center text-xl flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                     {benefit.icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm text-card-foreground mb-1">
+                    <h3
+                      className="font-semibold text-sm text-card-foreground mb-1 group-hover:text-primary transition-colors">
                       {benefit.title}
                     </h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
+                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
                       {benefit.description}
                     </p>
                   </div>
@@ -74,19 +88,28 @@ export default function WelcomePage() {
               </div>
             ))}
           </div>
-        </div>
-      </div>
 
-      {/* CTA Button - Fixed at bottom */}
-      <div className="p-6 bg-background">
-        <Button
-          size="lg"
-          onClick={handleGetStarted}
-          disabled={!isConnected}
-          className="w-full text-base font-semibold h-12 rounded-xl"
-        >
-          {isConnected ? "Get Started" : "Connect Wallet"}
-        </Button>
+          {/* CTA Button */}
+          <div className="pt-2">
+            <Button
+              size="lg"
+              onClick={handleGetStarted}
+              disabled={!isConnected}
+              className={`w-full text-base font-bold h-12 rounded-xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white ${
+                isConnected
+                  ? "hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02]"
+                  : "opacity-50 cursor-not-allowed"
+              }`}
+            >
+              {isConnected ? "Get Started ✨" : "Connect Wallet"}
+            </Button>
+            {!isConnected && (
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                Connect your wallet to start exploring events
+              </p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

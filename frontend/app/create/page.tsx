@@ -70,20 +70,23 @@ export default function CreateEventPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 bg-background/80 backdrop-blur-xl border-b border-border z-10 safe-top">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Background */}
+      <div className="fixed inset-0 gradient-mesh opacity-30 -z-10" />
+
+      {/* Header with glass morphism */}
+      <div className="sticky top-0 glass border-b border-border/50 z-10 safe-top">
         <div className="px-6 py-5 flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.back()}
-            className="-ml-2 hover:bg-muted"
+            className="-ml-2 hover:bg-muted/70"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Create Event</h1>
+            <h1 className="text-2xl font-bold text-gradient">Create Event</h1>
             <p className="text-xs text-muted-foreground">Share your event with the community</p>
           </div>
         </div>
@@ -140,14 +143,18 @@ export default function CreateEventPage() {
                 key={cat.value}
                 type="button"
                 onClick={() => setFormData({ ...formData, category: cat.value })}
-                className={`p-4 rounded-xl border-2 transition-all active:scale-95 ${
+                className={`group p-4 rounded-2xl border-2 transition-all active:scale-95 ${
                   formData.category === cat.value
-                    ? "border-primary bg-primary/10 shadow-sm shadow-primary/20"
-                    : "border-border bg-card hover:border-primary/30 hover:bg-muted/50"
+                    ? "border-0 gradient-primary-secondary shadow-lg text-white"
+                    : "border-border/50 glass-card hover:border-primary/30"
                 }`}
               >
-                <div className="text-3xl mb-1.5">{cat.icon}</div>
-                <div className="text-xs font-semibold">{cat.label}</div>
+                <div className={`text-3xl mb-1.5 transition-transform duration-300 ${
+                  formData.category === cat.value ? "scale-110" : "group-hover:scale-110"
+                }`}>{cat.icon}</div>
+                <div className={`text-xs font-semibold ${
+                  formData.category === cat.value ? "text-white" : "text-foreground"
+                }`}>{cat.label}</div>
               </button>
             ))}
           </div>
@@ -198,8 +205,10 @@ export default function CreateEventPage() {
           <div className="relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
             <Input
@@ -223,7 +232,8 @@ export default function CreateEventPage() {
           <div className="relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
             <Input
@@ -247,23 +257,22 @@ export default function CreateEventPage() {
             type="submit"
             disabled={isSubmitting}
             size="lg"
-            className="w-full text-base font-bold h-14 rounded-xl shadow-lg hover:shadow-xl transition-all"
+            className="w-full text-base font-bold h-16 rounded-2xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">
-                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
+                     viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <path className="opacity-75" fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 Creating Event...
               </span>
             ) : (
-              "Create Event"
+              "Create Event ✨"
             )}
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            By creating an event, you agree to our community guidelines
-          </p>
         </div>
       </form>
 

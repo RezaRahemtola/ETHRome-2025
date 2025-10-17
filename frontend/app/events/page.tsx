@@ -89,18 +89,21 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 bg-background/80 backdrop-blur-xl border-b border-border z-10 safe-top">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Gradient background */}
+      <div className="fixed inset-0 gradient-mesh opacity-30 -z-10" />
+
+      {/* Header with glass morphism */}
+      <div className="sticky top-0 glass border-b border-border/50 z-10 safe-top">
         <div className="px-6 py-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold mb-1">Discover</h1>
+              <h1 className="text-3xl font-bold mb-1 text-gradient">Discover</h1>
               <p className="text-sm text-muted-foreground">Find your next experience</p>
             </div>
           </div>
 
-          {/* Filter Pills */}
+          {/* Filter Pills with gradient active state */}
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
             {(["all", "upcoming", "past"] as const).map((f) => (
               <button
@@ -108,8 +111,8 @@ export default function EventsPage() {
                 onClick={() => setFilter(f)}
                 className={`px-5 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
                   filter === f
-                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
-                    : "bg-muted text-muted-foreground hover:bg-muted/70"
+                    ? "gradient-primary-secondary text-white shadow-lg shadow-primary/30"
+                    : "glass-card text-muted-foreground hover:bg-muted/70"
                 }`}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}

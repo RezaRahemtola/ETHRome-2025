@@ -16,20 +16,27 @@ export const minikitConfig = {
   miniapp: {
     version: "1",
     name: "Raduno",
-    subtitle: "Decentralized event platform",
-    description: "TODO",
-    screenshotUrls: [`${ROOT_URL}/screenshot-portrait.png`],
+    homeUrl: ROOT_URL,
+
+    // TODO
     iconUrl: `${ROOT_URL}/blue-icon.png`,
     splashImageUrl: `${ROOT_URL}/blue-hero.png`,
     splashBackgroundColor: "#000000",
-    homeUrl: ROOT_URL,
-    webhookUrl: `${ROOT_URL}/api/webhook`,
+
     primaryCategory: "social",
-    tags: ["marketing", "ads", "quickstart", "waitlist"],
+    tags: ["events", "community", "meetups"],
+    subtitle: "One-tap event signup",
+    description: "Create events and manage registrations onchain with Raduno. Register with one tap, your wallet is your ticket.",
+    tagline: "One-tap event signup",
+
+    // TODO
     heroImageUrl: `${ROOT_URL}/blue-hero.png`,
-    tagline: "",
-    ogTitle: "",
-    ogDescription: "",
+    screenshotUrls: [`${ROOT_URL}/screenshot-portrait.png`],
+
+    ogTitle: "Raduno",
+    ogDescription: "Create events onchain with Raduno. Register with one tap, your wallet is your ticket.",
+
+    // TODO
     ogImageUrl: `${ROOT_URL}/blue-hero.png`
   }
 } as const;
