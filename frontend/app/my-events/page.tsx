@@ -37,13 +37,13 @@ interface AuthResponse {
 }
 
 export default function MyEventsPage() {
-  const { isFrameReady, setFrameReady, context } = useMiniKit();
+  const { isFrameReady, setFrameReady } = useMiniKit();
   const router = useRouter();
   const [tab, setTab] = useState<"registered" | "hosted">("registered");
   const [registeredEvents] = useState<Event[]>(mockRegisteredEvents);
   const [hostedEvents] = useState<Event[]>(mockHostedEvents);
 
-  const { data: authData } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
+  const { data: authData, isLoading: isAuthLoading } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
 
   // Initialize the miniapp
   useEffect(() => {
@@ -51,6 +51,13 @@ export default function MyEventsPage() {
       setFrameReady();
     }
   }, [setFrameReady, isFrameReady]);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthLoading && (!authData || !authData.success)) {
+      router.push("/");
+    }
+  }, [authData, isAuthLoading, router]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -103,7 +110,8 @@ export default function MyEventsPage() {
             >
               <div className="flex gap-4">
                 {/* Event Icon */}
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-3xl flex-shrink-0">
+                <div
+                  className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-3xl flex-shrink-0">
                   {event.image}
                 </div>
 

@@ -53,18 +53,34 @@ const mockEvents: Event[] = [
   }
 ];
 
+interface AuthResponse {
+  success: boolean;
+  user?: {
+    fid: number;
+  };
+}
+
 export default function EventsPage() {
   const { isFrameReady, setFrameReady, context } = useMiniKit();
   const router = useRouter();
-  const [events, setEvents] = useState<Event[]>(mockEvents);
+  const [events] = useState<Event[]>(mockEvents);
   const [filter, setFilter] = useState<"all" | "upcoming" | "past">("upcoming");
 
-  // Initialize the miniapp
+  const { data: authData, isLoading: isAuthLoading } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
+
+  // Initialize the miniapp and check auth
   useEffect(() => {
     if (!isFrameReady) {
       setFrameReady();
     }
   }, [setFrameReady, isFrameReady]);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthLoading && (!authData || !authData.success)) {
+      router.push("/");
+    }
+  }, [authData, isAuthLoading, router]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

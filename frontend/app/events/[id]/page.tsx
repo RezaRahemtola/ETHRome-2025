@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useMiniKit, useQuickAuth } from "@coinbase/onchainkit/minikit";
-import { useRouter, useParams } from "next/navigation";
+import { useMiniKit, useQuickAuth, useComposeCast } from "@coinbase/onchainkit/minikit";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 interface Event {
   id: string;
@@ -44,13 +46,13 @@ interface AuthResponse {
 }
 
 export default function EventDetailPage() {
-  const { isFrameReady, setFrameReady, context } = useMiniKit();
+  const { isFrameReady, setFrameReady } = useMiniKit();
   const router = useRouter();
-  const params = useParams();
   const [event, setEvent] = useState<Event>(mockEvent);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const { data: authData } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
+  const { data: authData, isLoading: isAuthLoading } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
+  const { composeCastAsync } = useComposeCast();
 
   // Initialize the miniapp
   useEffect(() => {
@@ -58,6 +60,13 @@ export default function EventDetailPage() {
       setFrameReady();
     }
   }, [setFrameReady, isFrameReady]);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthLoading && (!authData || !authData.success)) {
+      router.push("/");
+    }
+  }, [authData, isAuthLoading, router]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -77,20 +86,40 @@ export default function EventDetailPage() {
 
     setIsRegistering(true);
 
-    // TODO: Integrate with smart contract to register for event
-    console.log("Registering for event:", event.id);
-    console.log("User FID:", authData.user?.fid);
+    try {
+      // TODO: Integrate with smart contract to register for event
+      console.log("Registering for event:", event.id);
+      console.log("User FID:", authData.user?.fid);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-    setEvent({
-      ...event,
-      isRegistered: true,
-      attendees: event.attendees + 1
-    });
+      setEvent({
+        ...event,
+        isRegistered: true,
+        attendees: event.attendees + 1
+      });
 
-    setIsRegistering(false);
+      // Compose a cast to share the event registration
+      const castText = `Just registered for ${event.title}! 🎉\n\n${event.description.slice(0, 100)}...\n\n📅 ${formatDate(event.date)} at ${event.time}\n📍 ${event.location}\n\nJoin us on Raduno!`;
+
+      // Use OnchainKit's useComposeCast hook
+      const result = await composeCastAsync({
+        text: castText,
+        embeds: [process.env.NEXT_PUBLIC_URL || ""]
+      });
+
+      // result.cast can be null if user cancels
+      if (result?.cast) {
+        console.log("Cast created successfully:", result.cast.hash);
+      } else {
+        console.log("User cancelled the cast");
+      }
+    } catch (error) {
+      console.error("Error registering for event:", error);
+    } finally {
+      setIsRegistering(false);
+    }
   };
 
   const handleUnregister = async () => {
@@ -118,14 +147,14 @@ export default function EventDetailPage() {
       {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-10 safe-top">
         <div className="px-6 py-4 flex items-center gap-4">
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => router.back()}
-            className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors"
+            className="-ml-2"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
           <h1 className="text-xl font-bold">Event Details</h1>
         </div>
       </div>
@@ -202,7 +231,7 @@ export default function EventDetailPage() {
               <div className="flex items-center gap-3">
                 <div className="text-2xl">✅</div>
                 <div>
-                  <div className="font-semibold text-primary">You're registered!</div>
+                  <div className="font-semibold text-primary">You&apos;re registered!</div>
                   <div className="text-sm text-muted-foreground">See you at the event</div>
                 </div>
               </div>
@@ -212,21 +241,24 @@ export default function EventDetailPage() {
           {/* Action Button */}
           <div className="pt-4">
             {event.isRegistered ? (
-              <button
+              <Button
+                variant="destructive"
+                size="lg"
                 onClick={handleUnregister}
                 disabled={isRegistering}
-                className="w-full bg-destructive hover:bg-destructive/90 disabled:bg-destructive/50 text-white font-semibold rounded-2xl py-4 px-6 transition-colors active:scale-[0.98] transform disabled:scale-100"
+                className="w-full text-base font-semibold"
               >
                 {isRegistering ? "Unregistering..." : "Unregister"}
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
+                size="lg"
                 onClick={handleRegister}
                 disabled={isRegistering || isFull}
-                className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground font-semibold rounded-2xl py-4 px-6 transition-colors active:scale-[0.98] transform disabled:scale-100"
+                className="w-full text-base font-semibold"
               >
                 {isRegistering ? "Registering..." : isFull ? "Event Full" : "Register for Event"}
-              </button>
+              </Button>
             )}
           </div>
         </div>

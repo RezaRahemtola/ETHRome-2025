@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useMiniKit, useQuickAuth } from "@coinbase/onchainkit/minikit";
+import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 
 interface AuthResponse {
@@ -12,7 +13,8 @@ interface AuthResponse {
 
 export default function ProfilePage() {
   const { isFrameReady, setFrameReady, context } = useMiniKit();
-  const { data: authData } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
+  const router = useRouter();
+  const { data: authData, isLoading: isAuthLoading } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
 
   // Initialize the miniapp
   useEffect(() => {
@@ -20,6 +22,13 @@ export default function ProfilePage() {
       setFrameReady();
     }
   }, [setFrameReady, isFrameReady]);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthLoading && (!authData || !authData.success)) {
+      router.push("/");
+    }
+  }, [authData, isAuthLoading, router]);
 
   const stats = [
     { label: "Events Attended", value: 12 },

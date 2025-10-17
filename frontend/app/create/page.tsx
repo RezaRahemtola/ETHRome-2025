@@ -1,8 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useMiniKit } from "@coinbase/onchainkit/minikit";
+import { useMiniKit, useQuickAuth } from "@coinbase/onchainkit/minikit";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft } from "lucide-react";
+
+interface AuthResponse {
+  success: boolean;
+  user?: {
+    fid: number;
+  };
+}
 
 export default function CreateEventPage() {
   const { isFrameReady, setFrameReady, context } = useMiniKit();
@@ -18,12 +29,21 @@ export default function CreateEventPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const { data: authData, isLoading: isAuthLoading } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
+
   // Initialize the miniapp
   useEffect(() => {
     if (!isFrameReady) {
       setFrameReady();
     }
   }, [setFrameReady, isFrameReady]);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthLoading && (!authData || !authData.success)) {
+      router.push("/");
+    }
+  }, [authData, isAuthLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,14 +81,14 @@ export default function CreateEventPage() {
       {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-10 safe-top">
         <div className="px-6 py-4 flex items-center gap-4">
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => router.back()}
-            className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors"
+            className="-ml-2"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
           <h1 className="text-2xl font-bold">Create Event</h1>
         </div>
       </div>
@@ -80,7 +100,7 @@ export default function CreateEventPage() {
           <label htmlFor="title" className="block text-sm font-medium mb-2">
             Event Title
           </label>
-          <input
+          <Input
             type="text"
             id="title"
             name="title"
@@ -88,7 +108,6 @@ export default function CreateEventPage() {
             onChange={handleChange}
             placeholder="Web3 Developers Meetup"
             required
-            className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
 
@@ -97,7 +116,7 @@ export default function CreateEventPage() {
           <label htmlFor="description" className="block text-sm font-medium mb-2">
             Description
           </label>
-          <textarea
+          <Textarea
             id="description"
             name="description"
             value={formData.description}
@@ -105,7 +124,6 @@ export default function CreateEventPage() {
             placeholder="Tell attendees what your event is about..."
             rows={4}
             required
-            className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring resize-none"
           />
         </div>
 
@@ -139,28 +157,26 @@ export default function CreateEventPage() {
             <label htmlFor="date" className="block text-sm font-medium mb-2">
               Date
             </label>
-            <input
+            <Input
               type="date"
               id="date"
               name="date"
               value={formData.date}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           <div>
             <label htmlFor="time" className="block text-sm font-medium mb-2">
               Time
             </label>
-            <input
+            <Input
               type="time"
               id="time"
               name="time"
               value={formData.time}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
         </div>
@@ -170,7 +186,7 @@ export default function CreateEventPage() {
           <label htmlFor="location" className="block text-sm font-medium mb-2">
             Location
           </label>
-          <input
+          <Input
             type="text"
             id="location"
             name="location"
@@ -178,7 +194,6 @@ export default function CreateEventPage() {
             onChange={handleChange}
             placeholder="Rome, Italy"
             required
-            className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
 
@@ -187,28 +202,28 @@ export default function CreateEventPage() {
           <label htmlFor="maxAttendees" className="block text-sm font-medium mb-2">
             Maximum Attendees
           </label>
-          <input
+          <Input
             type="number"
             id="maxAttendees"
             name="maxAttendees"
             value={formData.maxAttendees}
             onChange={handleChange}
             placeholder="100"
-            min="1"
+            min={1}
             required
-            className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
 
         {/* Submit Button */}
         <div className="pt-4">
-          <button
+          <Button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground font-semibold rounded-2xl py-4 px-6 transition-colors active:scale-[0.98] transform disabled:scale-100"
+            size="lg"
+            className="w-full text-base font-semibold"
           >
             {isSubmitting ? "Creating..." : "Create Event"}
-          </button>
+          </Button>
         </div>
       </form>
 
