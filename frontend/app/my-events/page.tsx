@@ -4,6 +4,7 @@ import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
+import EventCard from "../components/EventCard";
 
 interface Event {
   id: string;
@@ -62,90 +63,75 @@ export default function MyEventsPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-10 safe-top">
-        <div className="px-6 py-4">
-          <h1 className="text-2xl font-bold mb-4">My Events</h1>
+      <div className="sticky top-0 bg-background/80 backdrop-blur-xl border-b border-border z-10 safe-top">
+        <div className="px-6 py-5">
+          <h1 className="text-3xl font-bold mb-4">My Events</h1>
 
           {/* Tabs */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 bg-muted rounded-xl p-1">
             <button
               onClick={() => setTab("registered")}
-              className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 tab === "registered"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Registered ({registeredEvents.length})
+              Registered
+              <span className={`ml-1.5 text-xs ${tab === "registered" ? "text-primary" : "text-muted-foreground"}`}>
+                {registeredEvents.length}
+              </span>
             </button>
             <button
               onClick={() => setTab("hosted")}
-              className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 tab === "hosted"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Hosting ({hostedEvents.length})
+              Hosting
+              <span className={`ml-1.5 text-xs ${tab === "hosted" ? "text-primary" : "text-muted-foreground"}`}>
+                {hostedEvents.length}
+              </span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Events List */}
-      <div className="px-6 py-4 pb-nav space-y-4">
+      <div className="px-6 py-6 pb-nav">
         {events.length > 0 ? (
-          events.map((event) => (
-            <button
-              key={event.id}
-              onClick={() => router.push(`/events/${event.id}`)}
-              className="w-full bg-card rounded-2xl p-4 border border-border hover:border-primary/50 transition-all active:scale-[0.98] text-left"
-            >
-              <div className="flex gap-4">
-                {/* Event Icon */}
-                <div
-                  className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-3xl flex-shrink-0">
-                  {event.image}
-                </div>
-
-                {/* Event Info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-card-foreground mb-1 truncate">
-                    {event.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {formatDate(event.date)} • {event.time}
-                  </p>
-                  <div className="text-xs text-muted-foreground">
-                    📍 {event.location}
-                  </div>
-                </div>
-
-                {/* Arrow */}
-                <div className="flex items-center text-muted-foreground">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            </button>
-          ))
+          <div className="space-y-3">
+            {events.map((event) => (
+              <EventCard
+                key={event.id}
+                id={event.id}
+                title={event.title}
+                date={event.date}
+                time={event.time}
+                location={event.location}
+                attendees={event.attendees}
+                image={event.image}
+              />
+            ))}
+          </div>
         ) : (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">
+          <div className="text-center py-20">
+            <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-muted flex items-center justify-center text-4xl">
               {tab === "registered" ? "🎟️" : "🎪"}
             </div>
-            <h3 className="text-lg font-semibold mb-2">
+            <h3 className="text-xl font-bold mb-2">
               {tab === "registered" ? "No registered events" : "No hosted events"}
             </h3>
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
               {tab === "registered"
-                ? "Browse events and register to see them here"
-                : "Create your first event to get started"}
+                ? "Discover amazing events and register to see them here"
+                : "Share your passion by creating your first event"}
             </p>
             <button
               onClick={() => router.push(tab === "registered" ? "/events" : "/create")}
-              className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-medium"
+              className="bg-primary text-primary-foreground px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-shadow"
             >
               {tab === "registered" ? "Browse Events" : "Create Event"}
             </button>

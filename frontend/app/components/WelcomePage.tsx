@@ -2,7 +2,6 @@
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -33,66 +32,61 @@ export default function WelcomePage() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-background safe-bottom">
+    <div className="flex flex-col bg-background safe-bottom overflow-hidden">
       {/* Hero Section */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-        <div className="w-full max-w-md space-y-8 text-center">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto">
+        <div className="w-full max-w-md space-y-6">
           {/* Logo/Icon */}
           <div className="flex justify-center">
             <div
-              className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-4xl shadow-lg">
+              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary via-accent to-secondary flex items-center justify-center text-3xl shadow-lg">
               🎪
             </div>
           </div>
 
           {/* Title */}
-          <div className="space-y-3">
-            <h1 className="text-4xl font-bold tracking-tight">
+          <div className="space-y-2 text-center">
+            <h1 className="text-3xl font-bold tracking-tight">
               Raduno
             </h1>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               The decentralized event platform
             </p>
           </div>
 
           {/* Benefits Grid */}
-          <div className="grid grid-cols-1 gap-4 pt-4">
+          <div className="grid grid-cols-1 gap-3 pt-2">
             {benefits.map((benefit, index) => (
-              <Card key={index} className="text-left hover:border-primary/50 transition-colors">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-4">
-                    <div className="text-3xl flex-shrink-0 mt-1">
-                      {benefit.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-card-foreground mb-1">
-                        {benefit.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {benefit.description}
-                      </p>
-                    </div>
+              <div key={index} className="text-left p-4 rounded-xl bg-card border border-border">
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl flex-shrink-0">
+                    {benefit.icon}
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm text-card-foreground mb-1">
+                      {benefit.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {benefit.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </div>
 
       {/* CTA Button - Fixed at bottom */}
-      <div className="sticky bottom-0 p-6 bg-gradient-to-t from-background via-background to-transparent">
+      <div className="p-6 bg-background">
         <Button
           size="lg"
           onClick={handleGetStarted}
           disabled={!isConnected}
-          className="w-full text-base font-semibold shadow-lg"
+          className="w-full text-base font-semibold h-12 rounded-xl"
         >
-          Get Started
+          {isConnected ? "Get Started" : "Connect Wallet"}
         </Button>
-        <p className="text-center text-xs text-muted-foreground mt-3">
-          Powered by Base
-        </p>
       </div>
     </div>
   );

@@ -72,26 +72,29 @@ export default function CreateEventPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-10 safe-top">
-        <div className="px-6 py-4 flex items-center gap-4">
+      <div className="sticky top-0 bg-background/80 backdrop-blur-xl border-b border-border z-10 safe-top">
+        <div className="px-6 py-5 flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.back()}
-            className="-ml-2"
+            className="-ml-2 hover:bg-muted"
           >
-            <ArrowLeft className="h-6 w-6" />
+            <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Create Event</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Create Event</h1>
+            <p className="text-xs text-muted-foreground">Share your event with the community</p>
+          </div>
         </div>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="px-6 py-6 pb-nav space-y-6">
+      <form onSubmit={handleSubmit} className="px-6 py-6 pb-nav space-y-8">
         {/* Event Title */}
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium mb-2">
-            Event Title
+        <div className="space-y-2">
+          <label htmlFor="title" className="block text-sm font-semibold text-foreground">
+            Event Title <span className="text-destructive">*</span>
           </label>
           <Input
             type="text"
@@ -99,124 +102,168 @@ export default function CreateEventPage() {
             name="title"
             value={formData.title}
             onChange={handleChange}
-            placeholder="Web3 Developers Meetup"
+            placeholder="e.g., Web3 Developers Meetup"
+            className="h-12 text-base"
             required
           />
+          <p className="text-xs text-muted-foreground">Make it clear and compelling</p>
         </div>
 
         {/* Description */}
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium mb-2">
-            Description
+        <div className="space-y-2">
+          <label htmlFor="description" className="block text-sm font-semibold text-foreground">
+            Description <span className="text-destructive">*</span>
           </label>
           <Textarea
             id="description"
             name="description"
             value={formData.description}
             onChange={handleChange}
-            placeholder="Tell attendees what your event is about..."
-            rows={4}
+            placeholder="What's your event about? Who should attend? What will they learn or experience?"
+            rows={5}
+            className="text-base resize-none"
             required
           />
+          <p className="text-xs text-muted-foreground">
+            {formData.description.length}/500 characters
+          </p>
         </div>
 
         {/* Category */}
-        <div>
-          <label className="block text-sm font-medium mb-3">
-            Category
+        <div className="space-y-3">
+          <label className="block text-sm font-semibold text-foreground">
+            Category <span className="text-destructive">*</span>
           </label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
             {categories.map((cat) => (
               <button
                 key={cat.value}
                 type="button"
                 onClick={() => setFormData({ ...formData, category: cat.value })}
-                className={`p-3 rounded-xl border-2 transition-all ${
+                className={`p-4 rounded-xl border-2 transition-all active:scale-95 ${
                   formData.category === cat.value
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-card hover:border-muted-foreground/30"
+                    ? "border-primary bg-primary/10 shadow-sm shadow-primary/20"
+                    : "border-border bg-card hover:border-primary/30 hover:bg-muted/50"
                 }`}
               >
-                <div className="text-2xl mb-1">{cat.icon}</div>
-                <div className="text-xs font-medium">{cat.label}</div>
+                <div className="text-3xl mb-1.5">{cat.icon}</div>
+                <div className="text-xs font-semibold">{cat.label}</div>
               </button>
             ))}
           </div>
         </div>
 
         {/* Date and Time */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="date" className="block text-sm font-medium mb-2">
-              Date
-            </label>
-            <Input
-              type="date"
-              id="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="time" className="block text-sm font-medium mb-2">
-              Time
-            </label>
-            <Input
-              type="time"
-              id="time"
-              name="time"
-              value={formData.time}
-              onChange={handleChange}
-              required
-            />
+        <div className="space-y-3">
+          <label className="block text-sm font-semibold text-foreground">
+            When <span className="text-destructive">*</span>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label htmlFor="date" className="block text-xs text-muted-foreground">
+                Date
+              </label>
+              <Input
+                type="date"
+                id="date"
+                name="date"
+                value={formData.date}
+                onChange={handleChange}
+                className="h-12"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="time" className="block text-xs text-muted-foreground">
+                Time
+              </label>
+              <Input
+                type="time"
+                id="time"
+                name="time"
+                value={formData.time}
+                onChange={handleChange}
+                className="h-12"
+                required
+              />
+            </div>
           </div>
         </div>
 
         {/* Location */}
-        <div>
-          <label htmlFor="location" className="block text-sm font-medium mb-2">
-            Location
+        <div className="space-y-2">
+          <label htmlFor="location" className="block text-sm font-semibold text-foreground">
+            Location <span className="text-destructive">*</span>
           </label>
-          <Input
-            type="text"
-            id="location"
-            name="location"
-            value={formData.location}
-            onChange={handleChange}
-            placeholder="Rome, Italy"
-            required
-          />
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <Input
+              type="text"
+              id="location"
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              placeholder="e.g., Rome, Italy or Virtual"
+              className="h-12 pl-12 text-base"
+              required
+            />
+          </div>
         </div>
 
         {/* Max Attendees */}
-        <div>
-          <label htmlFor="maxAttendees" className="block text-sm font-medium mb-2">
-            Maximum Attendees
+        <div className="space-y-2">
+          <label htmlFor="maxAttendees" className="block text-sm font-semibold text-foreground">
+            Capacity <span className="text-destructive">*</span>
           </label>
-          <Input
-            type="number"
-            id="maxAttendees"
-            name="maxAttendees"
-            value={formData.maxAttendees}
-            onChange={handleChange}
-            placeholder="100"
-            min={1}
-            required
-          />
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <Input
+              type="number"
+              id="maxAttendees"
+              name="maxAttendees"
+              value={formData.maxAttendees}
+              onChange={handleChange}
+              placeholder="100"
+              className="h-12 pl-12 text-base"
+              min={1}
+              required
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Maximum number of attendees</p>
         </div>
 
         {/* Submit Button */}
-        <div className="pt-4">
+        <div className="pt-6 space-y-3">
           <Button
             type="submit"
             disabled={isSubmitting}
             size="lg"
-            className="w-full text-base font-semibold"
+            className="w-full text-base font-bold h-14 rounded-xl shadow-lg hover:shadow-xl transition-all"
           >
-            {isSubmitting ? "Creating..." : "Create Event"}
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Creating Event...
+              </span>
+            ) : (
+              "Create Event"
+            )}
           </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            By creating an event, you agree to our community guidelines
+          </p>
         </div>
       </form>
 

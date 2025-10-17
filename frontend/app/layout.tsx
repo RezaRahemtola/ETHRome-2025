@@ -14,38 +14,38 @@ export async function generateMetadata(): Promise<Metadata> {
         version: minikitConfig.miniapp.version,
         imageUrl: minikitConfig.miniapp.heroImageUrl,
         button: {
-          title: `Join the ${minikitConfig.miniapp.name} Waitlist`,
+          title: `${minikitConfig.miniapp.name}, your web3 events buddy`,
           action: {
-            name: `Launch ${minikitConfig.miniapp.name}`,
-            type: "launch_frame",
-          },
-        },
-      }),
-    },
+            name: `${minikitConfig.miniapp.name}`,
+            type: "launch_frame"
+          }
+        }
+      })
+    }
   };
 }
 
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["latin"],
+  subsets: ["latin"]
 });
 
 const sourceCodePro = Source_Code_Pro({
   variable: "--font-source-code-pro",
-  subsets: ["latin"],
+  subsets: ["latin"]
 });
 
 export default function RootLayout({
-  children,
-}: Readonly<{
+                                     children
+                                   }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <RootProvider>
       <html lang="en">
-        <body className={`${inter.variable} ${sourceCodePro.variable}`}>
-          <SafeArea>{children}</SafeArea>
-        </body>
+      <body className={`${inter.variable} ${sourceCodePro.variable}`}>
+      <SafeArea>{children}</SafeArea>
+      </body>
       </html>
     </RootProvider>
   );

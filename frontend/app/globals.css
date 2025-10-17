@@ -2,48 +2,74 @@
 
 @layer base {
   :root {
+    /* Luma-inspired refined palette */
     --background: 0 0% 100%;
-    --foreground: 0 0% 15%;
-    --card: 0 0% 99%;
-    --card-foreground: 0 0% 15%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 15%;
-    --primary: 255 70% 45%;
+    --popover-foreground: 0 0% 9%;
+
+    /* Primary - Vibrant blue for CTAs */
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 285 60% 55%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 50%;
-    --accent: 255 70% 45%;
+
+    /* Secondary - Purple accent */
+    --secondary: 250 95% 76%;
+    --secondary-foreground: 0 0% 9%;
+
+    /* Muted - Subtle backgrounds */
+    --muted: 0 0% 97%;
+    --muted-foreground: 0 0% 45%;
+
+    /* Accent - Gradient support color */
+    --accent: 270 82% 60%;
     --accent-foreground: 0 0% 100%;
+
+    /* Success - Green for confirmations */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning - Orange for alerts */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Refined borders and inputs */
     --border: 0 0% 90%;
-    --input: 0 0% 95%;
-    --ring: 255 70% 45%;
-    --radius: 1rem;
+    --input: 0 0% 94%;
+    --ring: 221 83% 53%;
+
+    /* Slightly tighter radius for modern look */
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 0 0% 12%;
+    --background: 0 0% 7%;
     --foreground: 0 0% 98%;
-    --card: 0 0% 15%;
+    --card: 0 0% 10%;
     --card-foreground: 0 0% 98%;
-    --popover: 0 0% 15%;
+    --popover: 0 0% 10%;
     --popover-foreground: 0 0% 98%;
-    --primary: 255 75% 55%;
-    --primary-foreground: 0 0% 12%;
-    --secondary: 285 65% 60%;
-    --secondary-foreground: 0 0% 12%;
-    --muted: 0 0% 20%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 250 95% 76%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 15%;
     --muted-foreground: 0 0% 60%;
-    --accent: 255 75% 55%;
-    --accent-foreground: 0 0% 12%;
+    --accent: 270 82% 60%;
+    --accent-foreground: 0 0% 100%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
     --destructive: 0 62.8% 60.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 25%;
-    --input: 0 0% 20%;
-    --ring: 255 75% 55%;
+    --border: 0 0% 20%;
+    --input: 0 0% 18%;
+    --ring: 221 83% 53%;
   }
 
   * {
@@ -53,13 +79,29 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   button, a[role="button"] {
     min-height: 44px;
+  }
+
+  /* Enhanced typography scale */
+  h1 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  h2 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-weight: 600;
   }
 }
 
