@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
         button: {
           title: `${minikitConfig.miniapp.name}, your web3 events buddy`,
           action: {
-            name: `${minikitConfig.miniapp.name}`,
+            name: `Launch ${minikitConfig.miniapp.name}`,
             type: "launch_frame"
           }
         }

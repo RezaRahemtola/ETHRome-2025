@@ -34,7 +34,7 @@ export default function BottomNav() {
       className="fixed bottom-0 left-0 right-0 glass border-t border-border/50 z-50 shadow-[0_-4px_30px_rgba(0,0,0,0.1)]">
       <div className="max-w-screen-xl mx-auto safe-bottom">
         <div className="flex items-center justify-around px-4 py-2">
-          {navItems.map((item, index) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
 

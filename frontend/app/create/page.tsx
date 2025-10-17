@@ -7,6 +7,7 @@ import BottomNav from "../components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowLeft } from "lucide-react";
 
 export default function CreateEventPage() {
@@ -20,7 +21,9 @@ export default function CreateEventPage() {
     time: "",
     location: "",
     maxAttendees: "",
-    category: "meetup"
+    category: "meetup",
+    coverImage: null as File | null,
+    ipfsHash: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -58,6 +61,16 @@ export default function CreateEventPage() {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFormData({
+        ...formData,
+        coverImage: file
+      });
+    }
   };
 
   const categories = [
@@ -224,32 +237,86 @@ export default function CreateEventPage() {
           </div>
         </div>
 
-        {/* Max Attendees */}
-        <div className="space-y-2">
-          <label htmlFor="maxAttendees" className="block text-sm font-semibold text-foreground">
-            Capacity <span className="text-destructive">*</span>
-          </label>
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-            <Input
-              type="number"
-              id="maxAttendees"
-              name="maxAttendees"
-              value={formData.maxAttendees}
-              onChange={handleChange}
-              placeholder="100"
-              className="h-12 pl-12 text-base"
-              min={1}
-              required
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">Maximum number of attendees</p>
-        </div>
+        {/* Advanced Options */}
+        <Accordion type="single" collapsible className="glass-card rounded-2xl px-6 border border-border/50">
+          <AccordionItem value="advanced" className="border-none">
+            <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
+              Advanced Options
+            </AccordionTrigger>
+            <AccordionContent className="space-y-6 pt-2">
+              {/* Capacity */}
+              <div className="space-y-2">
+                <label htmlFor="maxAttendees" className="block text-sm font-semibold text-foreground">
+                  Capacity
+                </label>
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <Input
+                    type="number"
+                    id="maxAttendees"
+                    name="maxAttendees"
+                    value={formData.maxAttendees}
+                    onChange={handleChange}
+                    placeholder="100"
+                    className="h-12 pl-12 text-base"
+                    min={1}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Maximum number of attendees (optional)</p>
+              </div>
+
+              {/* Cover Image */}
+              <div className="space-y-2">
+                <label htmlFor="coverImage" className="block text-sm font-semibold text-foreground">
+                  Cover Image
+                </label>
+                <div className="relative">
+                  <Input
+                    type="file"
+                    id="coverImage"
+                    name="coverImage"
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    className="h-12 text-base file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formData.coverImage ? `Selected: ${formData.coverImage.name}` : "Upload a cover image for your event (optional)"}
+                </p>
+              </div>
+
+              {/* IPFS Hash */}
+              <div className="space-y-2">
+                <label htmlFor="ipfsHash" className="block text-sm font-semibold text-foreground">
+                  Website IPFS Hash
+                </label>
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                    </svg>
+                  </div>
+                  <Input
+                    type="text"
+                    id="ipfsHash"
+                    name="ipfsHash"
+                    value={formData.ipfsHash}
+                    onChange={handleChange}
+                    placeholder="e.g., QmX7..."
+                    className="h-12 pl-12 text-base"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">IPFS hash for event website (optional)</p>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         {/* Submit Button */}
         <div className="pt-6 space-y-3">
