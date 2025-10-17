@@ -1,10 +1,18 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function WelcomePage() {
   const router = useRouter();
+  const { isConnected } = useAccount();
+
+  const handleGetStarted = () => {
+    if (isConnected) {
+      router.push("/events");
+    }
+  };
 
   const benefits = [
     {
@@ -76,7 +84,8 @@ export default function WelcomePage() {
       <div className="sticky bottom-0 p-6 bg-gradient-to-t from-background via-background to-transparent">
         <Button
           size="lg"
-          onClick={() => router.push("/events")}
+          onClick={handleGetStarted}
+          disabled={!isConnected}
           className="w-full text-base font-semibold shadow-lg"
         >
           Get Started

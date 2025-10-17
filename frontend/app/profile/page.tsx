@@ -1,20 +1,14 @@
 "use client";
 import { useEffect } from "react";
-import { useMiniKit, useQuickAuth } from "@coinbase/onchainkit/minikit";
+import { useMiniKit } from "@coinbase/onchainkit/minikit";
+import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 
-interface AuthResponse {
-  success: boolean;
-  user?: {
-    fid: number;
-  };
-}
-
 export default function ProfilePage() {
   const { isFrameReady, setFrameReady, context } = useMiniKit();
+  const { address, isConnected } = useAccount();
   const router = useRouter();
-  const { data: authData, isLoading: isAuthLoading } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
 
   // Initialize the miniapp
   useEffect(() => {
@@ -23,12 +17,12 @@ export default function ProfilePage() {
     }
   }, [setFrameReady, isFrameReady]);
 
-  // Redirect if not authenticated
+  // Redirect if wallet not connected
   useEffect(() => {
-    if (!isAuthLoading && (!authData || !authData.success)) {
+    if (!isConnected) {
       router.push("/");
     }
-  }, [authData, isAuthLoading, router]);
+  }, [isConnected, router]);
 
   const stats = [
     { label: "Events Attended", value: 12 },
@@ -37,7 +31,7 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-10 safe-top">
         <div className="px-6 py-4">
@@ -45,7 +39,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="px-6 py-6 space-y-6">
+      <div className="px-6 py-6 pb-nav space-y-6">
         {/* User Info */}
         <div className="bg-card rounded-3xl p-6 border border-border">
           <div className="flex flex-col items-center text-center">
@@ -66,10 +60,10 @@ export default function ProfilePage() {
               </p>
             )}
 
-            {/* FID */}
-            {authData?.user?.fid && (
-              <div className="bg-muted px-3 py-1 rounded-full text-sm text-muted-foreground">
-                FID: {authData.user.fid}
+            {/* Wallet Address */}
+            {address && (
+              <div className="bg-muted px-3 py-1 rounded-full text-sm text-muted-foreground font-mono">
+                {address.slice(0, 6)}...{address.slice(-4)}
               </div>
             )}
           </div>

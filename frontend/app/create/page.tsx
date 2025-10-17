@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useMiniKit, useQuickAuth } from "@coinbase/onchainkit/minikit";
+import { useMiniKit } from "@coinbase/onchainkit/minikit";
+import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -8,15 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft } from "lucide-react";
 
-interface AuthResponse {
-  success: boolean;
-  user?: {
-    fid: number;
-  };
-}
-
 export default function CreateEventPage() {
   const { isFrameReady, setFrameReady, context } = useMiniKit();
+  const { isConnected } = useAccount();
   const router = useRouter();
   const [formData, setFormData] = useState({
     title: "",
@@ -29,8 +24,6 @@ export default function CreateEventPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { data: authData, isLoading: isAuthLoading } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
-
   // Initialize the miniapp
   useEffect(() => {
     if (!isFrameReady) {
@@ -38,12 +31,12 @@ export default function CreateEventPage() {
     }
   }, [setFrameReady, isFrameReady]);
 
-  // Redirect if not authenticated
+  // Redirect if wallet not connected
   useEffect(() => {
-    if (!isAuthLoading && (!authData || !authData.success)) {
+    if (!isConnected) {
       router.push("/");
     }
-  }, [authData, isAuthLoading, router]);
+  }, [isConnected, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +70,7 @@ export default function CreateEventPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-10 safe-top">
         <div className="px-6 py-4 flex items-center gap-4">
@@ -94,7 +87,7 @@ export default function CreateEventPage() {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="px-6 py-6 space-y-6">
+      <form onSubmit={handleSubmit} className="px-6 py-6 pb-nav space-y-6">
         {/* Event Title */}
         <div>
           <label htmlFor="title" className="block text-sm font-medium mb-2">

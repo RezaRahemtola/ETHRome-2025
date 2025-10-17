@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useMiniKit, useQuickAuth, useComposeCast } from "@coinbase/onchainkit/minikit";
+import { useMiniKit, useComposeCast } from "@coinbase/onchainkit/minikit";
+import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -38,20 +39,13 @@ const mockEvent: Event = {
   isRegistered: false
 };
 
-interface AuthResponse {
-  success: boolean;
-  user?: {
-    fid: number;
-  };
-}
-
 export default function EventDetailPage() {
   const { isFrameReady, setFrameReady } = useMiniKit();
+  const { address, isConnected } = useAccount();
   const router = useRouter();
   const [event, setEvent] = useState<Event>(mockEvent);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const { data: authData, isLoading: isAuthLoading } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
   const { composeCastAsync } = useComposeCast();
 
   // Initialize the miniapp
@@ -61,12 +55,12 @@ export default function EventDetailPage() {
     }
   }, [setFrameReady, isFrameReady]);
 
-  // Redirect if not authenticated
+  // Redirect if wallet not connected
   useEffect(() => {
-    if (!isAuthLoading && (!authData || !authData.success)) {
+    if (!isConnected) {
       router.push("/");
     }
-  }, [authData, isAuthLoading, router]);
+  }, [isConnected, router]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -79,8 +73,8 @@ export default function EventDetailPage() {
   };
 
   const handleRegister = async () => {
-    if (!authData?.success) {
-      alert("Please authenticate to register for events");
+    if (!isConnected) {
+      alert("Please connect your wallet to register for events");
       return;
     }
 
@@ -89,7 +83,7 @@ export default function EventDetailPage() {
     try {
       // TODO: Integrate with smart contract to register for event
       console.log("Registering for event:", event.id);
-      console.log("User FID:", authData.user?.fid);
+      console.log("User address:", address);
 
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));

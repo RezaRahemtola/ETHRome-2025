@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useMiniKit, useQuickAuth } from "@coinbase/onchainkit/minikit";
+import { useMiniKit } from "@coinbase/onchainkit/minikit";
+import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 
@@ -29,21 +30,13 @@ const mockRegisteredEvents: Event[] = [
 
 const mockHostedEvents: Event[] = [];
 
-interface AuthResponse {
-  success: boolean;
-  user?: {
-    fid: number;
-  };
-}
-
 export default function MyEventsPage() {
   const { isFrameReady, setFrameReady } = useMiniKit();
+  const { isConnected } = useAccount();
   const router = useRouter();
   const [tab, setTab] = useState<"registered" | "hosted">("registered");
   const [registeredEvents] = useState<Event[]>(mockRegisteredEvents);
   const [hostedEvents] = useState<Event[]>(mockHostedEvents);
-
-  const { data: authData, isLoading: isAuthLoading } = useQuickAuth<AuthResponse>("/api/auth", { method: "GET" });
 
   // Initialize the miniapp
   useEffect(() => {
@@ -52,12 +45,12 @@ export default function MyEventsPage() {
     }
   }, [setFrameReady, isFrameReady]);
 
-  // Redirect if not authenticated
+  // Redirect if wallet not connected
   useEffect(() => {
-    if (!isAuthLoading && (!authData || !authData.success)) {
+    if (!isConnected) {
       router.push("/");
     }
-  }, [authData, isAuthLoading, router]);
+  }, [isConnected, router]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -67,7 +60,7 @@ export default function MyEventsPage() {
   const events = tab === "registered" ? registeredEvents : hostedEvents;
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-10 safe-top">
         <div className="px-6 py-4">
@@ -100,7 +93,7 @@ export default function MyEventsPage() {
       </div>
 
       {/* Events List */}
-      <div className="px-6 py-4 space-y-4">
+      <div className="px-6 py-4 pb-nav space-y-4">
         {events.length > 0 ? (
           events.map((event) => (
             <button
