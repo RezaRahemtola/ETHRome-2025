@@ -234,8 +234,8 @@ export default function EventDetailPage() {
                 ✅
               </div>
               <div>
-                <div className="font-bold text-white text-lg">You're registered!</div>
-                <div className="text-sm text-white/80">We'll see you there</div>
+                <div className="font-bold text-white text-lg">You&#39;re registered!</div>
+                <div className="text-sm text-white/80">We&#39;ll see you there</div>
               </div>
             </div>
           </div>
@@ -338,10 +338,9 @@ export default function EventDetailPage() {
             <Button
               size="lg"
               onClick={handleRegister}
-              disabled={isRegistering || isFull}
-              className="w-full text-base font-bold h-16 rounded-2xl gradient-primary-secondary border-0 shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full text-base font-bold h-12 rounded-xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02]"
             >
-              {isRegistering ? "Registering..." : isFull ? "Event is Full" : "Register for Event ✨"}
+              {isRegistering ? "Registering..." : isFull ? "Event is full" : "Register for Event ✨"}
             </Button>
           )}
         </div>

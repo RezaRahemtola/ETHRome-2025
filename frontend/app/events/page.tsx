@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
-import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 import EventCard from "../components/EventCard";
@@ -56,8 +55,7 @@ const mockEvents: Event[] = [
 ];
 
 export default function EventsPage() {
-  const { isFrameReady, setFrameReady, context } = useMiniKit();
-  const { isConnected } = useAccount();
+  const { isFrameReady, setFrameReady } = useMiniKit();
   const router = useRouter();
   const [events] = useState<Event[]>(mockEvents);
   const [filter, setFilter] = useState<"all" | "upcoming" | "past">("upcoming");
@@ -68,18 +66,6 @@ export default function EventsPage() {
       setFrameReady();
     }
   }, [setFrameReady, isFrameReady]);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
-
-  const getAvailabilityColor = (attendees: number, max: number) => {
-    const percentage = (attendees / max) * 100;
-    if (percentage >= 90) return "text-destructive";
-    if (percentage >= 70) return "text-secondary";
-    return "text-primary";
-  };
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">

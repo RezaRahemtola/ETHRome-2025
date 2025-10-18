@@ -68,14 +68,6 @@ export default function ProfilePage() {
             return;
           }
 
-          // Try alternative property names
-          if ((receipt as any).contract) {
-            const addr = getAddress((receipt as any).contract);
-            setDeployedContractAddress(addr);
-            console.log(`Found at receipt.contract: ${addr}`);
-            return;
-          }
-
           // For smart wallets, fetch full receipt using the hash
           if (publicClient && hash) {
             console.log("Fetching full receipt...");

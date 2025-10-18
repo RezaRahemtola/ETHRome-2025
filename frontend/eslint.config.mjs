@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const compat = new FlatCompat({
-  baseDirectory: __dirname,
+  baseDirectory: __dirname
 });
 
 const eslintConfig = [
@@ -17,11 +17,12 @@ const eslintConfig = [
         "error",
         {
           argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-        },
+          varsIgnorePattern: "^_"
+        }
       ],
-    },
-  },
+      "@next/next/no-img-element": "off"
+    }
+  }
 ];
 
 export default eslintConfig;
