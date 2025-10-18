@@ -344,7 +344,7 @@ async function fetchGroupConfigurations(): Promise<GroupConfig[]> {
         const ensData = await fetchENSData(label);
 
         // Use ENS nickname as name, fall back to label
-        const eventName = `Raduro - ${ensData.nickname}` || label || `Event ${eventAddress.slice(0, 8)}...`;
+        const eventName = `Raduno - ${ensData.nickname}` || label || `Event ${eventAddress.slice(0, 8)}...`;
 
         // Use ENS description, fall back to default
         const eventDescription = ensData.description || `Event group for ${label || eventAddress}`;
