@@ -168,8 +168,8 @@ export default function MyEventsPage() {
               onClick={() => setTab("registered")}
               className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 tab === "registered"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-background text-foreground shadow-md border-2 border-primary/50"
+                  : "text-muted-foreground hover:text-foreground border-2 border-transparent"
               }`}
             >
               Registered
@@ -183,8 +183,8 @@ export default function MyEventsPage() {
               onClick={() => setTab("hosted")}
               className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                 tab === "hosted"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-background text-foreground shadow-md border-2 border-primary/50"
+                  : "text-muted-foreground hover:text-foreground border-2 border-transparent"
               }`}
             >
               Hosting
