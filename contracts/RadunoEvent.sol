@@ -15,6 +15,9 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
     mapping(address => bool) private blacklisted;
     address[] private participantList;
 
+    /// @notice Optional capacity (0 = unlimited)
+    uint256 public capacity;
+
     /// @notice The ENS L2 registrar contract
     IL2Registrar public l2Registrar;
     /// @notice The ENS L2 registry contract
@@ -31,7 +34,8 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
         address _l2Registrar,
         address _l2Registry,
         bytes32 _parentNode,
-        string memory _label
+        string memory _label,
+        uint256 _capacity // new optional capacity param
     ) Ownable(msg.sender) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
@@ -41,6 +45,7 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
 
         parentNode = _parentNode;
         label = _label;
+        capacity = _capacity; // 0 = unlimited
         ensInitialized = false;
     }
 
@@ -50,19 +55,15 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
         require(!ensInitialized, "ENS already initialized");
         ensInitialized = true;
 
-        // 1. Register the subdomain under parentNode with this contract as owner
+        // 1. Register the subdomain with this contract as owner
         l2Registrar.register(label, address(this));
 
-        // 2. Compute the node (namehash) of “label.parent” (off-chain or on-chain)
-        // Here we assume the caller supplies uint256 node value via a helper, but
-        // you might compute it offchain and pass as argument to this function.
+        // 2. Compute the node (namehash) of “label.parent”
         // For simplicity, we compute a labelhash and combine with parentNode:
         bytes32 labelHash = keccak256(bytes(label));
-        // namehash for subnode = keccak256(parentNode, labelHash)
         bytes32 subnode = keccak256(abi.encodePacked(parentNode, labelHash));
 
-        // 3. Approve the owner (msg.sender) as operator for this subnode
-        // Convert bytes32 to uint256 for registry function
+        // 3. Approve the owner as operator for this subnode
         uint256 subnodeUint = uint256(subnode);
         l2Registry.approve(this.owner(), subnodeUint);
     }
@@ -88,14 +89,41 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
         require(!blacklisted[msg.sender], "Blacklisted");
         require(!participants[msg.sender], "Already registered");
 
+        // enforce capacity if set
+        if (capacity > 0) {
+            require(
+                participantList.length < capacity,
+                "Event at full capacity"
+            );
+        }
+
         participants[msg.sender] = true;
         participantList.push(msg.sender);
 
         emit Registered(msg.sender);
     }
 
-    /// @notice Remove and blacklist a participant
-    /// @dev Only admins can call this
+    /// @notice Unregister yourself (if already registered)
+    function unregister() public {
+        require(participants[msg.sender], "Not registered");
+
+        participants[msg.sender] = false;
+
+        // remove from participantList (gas expensive, but fine for small events)
+        for (uint256 i = 0; i < participantList.length; i++) {
+            if (participantList[i] == msg.sender) {
+                participantList[i] = participantList[
+                    participantList.length - 1
+                ];
+                participantList.pop();
+                break;
+            }
+        }
+
+        emit Removed(msg.sender);
+    }
+
+    /// @notice Remove and blacklist a participant (admin only)
     function removeParticipant(
         address participant
     ) public virtual override onlyRole(ADMIN_ROLE) {
@@ -104,7 +132,23 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
         participants[participant] = false;
         blacklisted[participant] = true;
 
+        // remove from participantList
+        for (uint256 i = 0; i < participantList.length; i++) {
+            if (participantList[i] == participant) {
+                participantList[i] = participantList[
+                    participantList.length - 1
+                ];
+                participantList.pop();
+                break;
+            }
+        }
+
         emit Removed(participant);
+    }
+
+    /// @notice Allow admins to update capacity
+    function setCapacity(uint256 _newCapacity) external onlyRole(ADMIN_ROLE) {
+        capacity = _newCapacity;
     }
 
     // ---------------------- Read Functions ----------------------
@@ -124,5 +168,10 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
         returns (address[] memory)
     {
         return participantList;
+    }
+
+    /// @notice Get current participant count
+    function getParticipantCount() external view returns (uint256) {
+        return participantList.length;
     }
 }
