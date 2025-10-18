@@ -8,6 +8,7 @@
   "dependencies": {
     "@xmtp/agent-sdk": "^1.1.7",
     "@xmtp/content-type-markdown": "^1.0.0",
+    "@xmtp/content-type-wallet-send-calls": "^2.0.0",
     "better-sqlite3": "^12.4.1",
     "dotenv": "^17.2.3",
     "openai": "^4.75.0"

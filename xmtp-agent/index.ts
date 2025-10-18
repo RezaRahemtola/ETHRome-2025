@@ -7,10 +7,16 @@ import { createSigner, createUser } from "@xmtp/agent-sdk/user";
 import type { Group } from "@xmtp/node-sdk";
 import Database from "better-sqlite3";
 import OpenAI from "openai";
-import { createPublicClient, http, type Address } from "viem";
+import { createPublicClient, encodeFunctionData, http, type Address } from "viem";
 import { base } from "viem/chains";
 
 import { ContentTypeMarkdown, MarkdownCodec } from "@xmtp/content-type-markdown";
+import {
+  ContentTypeWalletSendCalls,
+  WalletSendCallsCodec,
+  WalletSendCallsParams,
+} from "@xmtp/content-type-wallet-send-calls";
+import { CONTRACT_ABI } from "./event";
 import { loadEnvFile } from "./utils";
 
 loadEnvFile();
@@ -723,6 +729,7 @@ function formatEventsForAI(events: GroupConfig[]): string {
   return events.map((event, idx) => {
     return `${idx + 1}. ${event.name}
    Label: ${event.label}
+   Address: ${event.address}
    Description: ${event.description || "No description available"}
    Number of participants: ${event.memberAddresses.length}`;
   }).join("\n\n");
@@ -798,6 +805,100 @@ Important: Use the event's Label field (not the name) in the URL. The name is fo
   }
 }
 
+/**
+ * Send a registration transaction request to the user for a specific event
+ *
+ * @param eventAddress - The event contract address
+ * @param eventName - The event name
+ * @param eventLabel - The event label for URL
+ * @param userAddress - The user's Ethereum address
+ * @param conversation - The conversation to send the transaction to
+ */
+async function sendRegistrationTransaction(
+  eventAddress: string,
+  eventName: string,
+  eventLabel: string,
+  userAddress: string,
+  conversation: any
+): Promise<void> {
+  try {
+    console.log(`\n📝 Preparing registration transaction for ${userAddress.slice(0, 10)}...`);
+    console.log(`   Event: ${eventName}`);
+    console.log(`   Contract: ${eventAddress}`);
+
+    // Check if user is already registered
+    const isAlreadyParticipant = await publicClient.readContract({
+      address: eventAddress as Address,
+      abi: CONTRACT_ABI,
+      functionName: "isParticipant",
+      args: [userAddress as Address],
+    });
+
+    if (isAlreadyParticipant) {
+      console.log(`   ℹ️  User is already registered for this event`);
+      await conversation.send(
+        `✅ You're already registered for **${eventName}**!`,
+        ContentTypeMarkdown
+      );
+      return;
+    }
+
+    // Encode the register() function call
+    const data = encodeFunctionData({
+      abi: CONTRACT_ABI,
+      functionName: "register",
+      args: [],
+    });
+
+    // Create the transaction request
+    const transactionRequest: WalletSendCallsParams = {
+      version: '1.0',
+      from: userAddress as Address,
+      chainId: '0x2105',
+      capabilities: {
+        // @ts-expect-error Wrong type from XMTP package
+        paymasterService: {
+          url: process.env.PAYMASTER_URL,
+        },
+  },
+      calls: [
+        {
+          to: eventAddress as Address,
+          data: data as `0x${string}`,
+          metadata: {
+            description: `Register for ${eventName}`,
+            transactionType: "register",
+            eventName: eventName,
+            eventLabel: eventLabel,
+            hostname: "raduno.reza.dev",
+            title: "Raduno Event Registration",
+          },
+        },
+      ],
+    };
+
+    console.log(`   📤 Sending transaction request to user...`);
+
+    // Send the transaction request
+    await conversation.send(transactionRequest, ContentTypeWalletSendCalls);
+
+    // Send follow-up message
+    await conversation.send(
+      `🎉 I've prepared your registration for **${eventName}**!\n\nPlease approve the transaction in your Base app to complete your registration.`,
+      ContentTypeMarkdown
+    );
+
+    console.log(`   ✅ Transaction request sent!`);
+
+  } catch (error: any) {
+    console.error("Error sending registration transaction:", error);
+    await conversation.send(
+      `❌ Sorry, there was an error preparing your registration. Please try again later.`,
+      ContentTypeMarkdown
+    );
+  }
+}
+
 // ============================================================================
 // Agent Setup
 // ============================================================================
@@ -818,7 +919,7 @@ const signer = createSigner(user);
 const agent = await Agent.create(signer, {
   env: xmtpEnv,
   dbPath: process.env.XMTP_DB_PATH || null,
-  codecs: [new MarkdownCodec()]
+  codecs: [new MarkdownCodec(), new WalletSendCallsCodec()]
 });
 
 // ============================================================================
@@ -889,7 +990,83 @@ agent.on("text", async (ctx) => {
     console.log(`💬 Received DM from ${senderAddress.slice(0, 10)}...`);
     console.log(`   Message: "${messageText}"`);
 
-    // Handle the message with AI-powered recommendations
+    // Use AI to detect user intent
+    if (openai) {
+      const intentPrompt = `Analyze the user's message and determine if they want to register for a specific event.
+
+User message: "${messageText}"
+
+Respond with ONLY one of these two words:
+- "REGISTER" if the user clearly wants to register/sign up/join a specific event
+- "RECOMMEND" if the user is asking for recommendations or general information about events
+
+Be strict: only respond "REGISTER" if they explicitly indicate they want to register for an event.`;
+
+      console.log(`   🤖 Detecting user intent with AI...`);
+      const intentCompletion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: intentPrompt },
+          { role: "user", content: messageText }
+        ],
+        temperature: 0.1,
+        max_tokens: 10,
+      });
+
+      const intent = intentCompletion.choices[0]?.message?.content?.trim().toUpperCase();
+      console.log(`   Intent detected: ${intent}`);
+
+      if (intent === "REGISTER") {
+        console.log(`   🎟️ User wants to register for an event`);
+
+        // Fetch all available events
+        const events = await fetchGroupConfigurations();
+
+        if (events.length === 0) {
+          await ctx.conversation.send(
+            "I'm sorry, but there are currently no events available to register for. Please check back later!",
+            ContentTypeMarkdown
+          );
+          return;
+        }
+
+        // Use AI to select the best event based on user message
+        const eventsContext = formatEventsForAI(events);
+        const systemPrompt = `You are an event selection assistant. Based on the user's message, select the MOST SUITABLE event for them.
+
+Available events:
+${eventsContext}
+
+Respond with ONLY the event's address (42-char hex starting with 0x). Nothing else.`;
+
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: messageText }
+          ],
+          temperature: 0.3,
+          max_tokens: 100,
+        });
+
+        const selectedEventAddress = completion.choices[0]?.message?.content?.trim().toLowerCase();
+        const selectedEvent = events.find(e => e.address.toLowerCase() === selectedEventAddress) || events[0];
+
+        console.log(`   ✅ AI selected event: ${selectedEvent.name}`);
+
+        // Send registration transaction
+        await sendRegistrationTransaction(
+          selectedEvent.address,
+          selectedEvent.name,
+          selectedEvent.label,
+          senderAddress,
+          ctx.conversation
+        );
+        return;
+      }
+    }
+
+    // Default: Handle with AI-powered recommendations
     const response = await handleEventRecommendation(messageText, senderAddress);
 
     // Send the response
