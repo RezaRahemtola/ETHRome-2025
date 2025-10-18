@@ -1,15 +1,33 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContract } from "wagmi";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { CONTRACT_ABI as FACTORY_ABI, CONTRACT_ADDRESS as FACTORY_ADDRESS } from "@/lib/contracts/factory";
+import { CONTRACT_ABI as EVENT_ABI } from "@/lib/contracts/event";
+import { base } from "wagmi/chains";
+import { createPublicClient, http } from "viem";
 
 export default function ProfilePage() {
   const { isFrameReady, setFrameReady, context } = useMiniKit();
   const { address, isConnected } = useAccount();
   const router = useRouter();
+  const [stats, setStats] = useState([
+    { label: "Events Attended", value: 0 },
+    { label: "Events Hosted", value: 0 },
+    { label: "Total Attendees", value: 0 }
+  ]);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  // Get all deployed event addresses from factory
+  const { data: eventAddresses } = useReadContract({
+    address: FACTORY_ADDRESS as `0x${string}`,
+    abi: FACTORY_ABI,
+    functionName: "getDeployedEvents",
+    chainId: base.id
+  });
 
   // Initialize the miniapp
   useEffect(() => {
@@ -25,11 +43,80 @@ export default function ProfilePage() {
     }
   }, [isConnected, router]);
 
-  const stats = [
-    { label: "Events Attended", value: 12 },
-    { label: "Events Hosted", value: 3 },
-    { label: "Network Size", value: 48 }
-  ];
+  // Fetch user stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!eventAddresses || eventAddresses.length === 0 || !address) {
+        setIsLoadingStats(false);
+        return;
+      }
+
+      try {
+        const publicClient = createPublicClient({
+          chain: base,
+          transport: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org')
+        });
+
+        let eventsAttended = 0;
+        let eventsHosted = 0;
+        let totalAttendeesHosted = 0;
+
+        await Promise.all(
+          (eventAddresses as `0x${string}`[]).map(async (eventAddress) => {
+            try {
+              // Check if user is the owner/host
+              const owner = await publicClient.readContract({
+                address: eventAddress,
+                abi: EVENT_ABI,
+                functionName: 'owner'
+              }) as `0x${string}`;
+
+              const isOwner = owner.toLowerCase() === address.toLowerCase();
+
+              if (isOwner) {
+                eventsHosted++;
+
+                // Get participant count for hosted events
+                const participantCount = await publicClient.readContract({
+                  address: eventAddress,
+                  abi: EVENT_ABI,
+                  functionName: 'getParticipantCount'
+                }) as bigint;
+
+                totalAttendeesHosted += Number(participantCount);
+              }
+
+              // Check if user is registered (participant)
+              const isRegistered = await publicClient.readContract({
+                address: eventAddress,
+                abi: EVENT_ABI,
+                functionName: 'isParticipant',
+                args: [address]
+              }) as boolean;
+
+              if (isRegistered) {
+                eventsAttended++;
+              }
+            } catch (error) {
+              console.error(`Error checking event ${eventAddress}:`, error);
+            }
+          })
+        );
+
+        setStats([
+          { label: "Events Attended", value: eventsAttended },
+          { label: "Events Hosted", value: eventsHosted },
+          { label: "Total Attendees", value: totalAttendeesHosted }
+        ]);
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    fetchStats();
+  }, [eventAddresses, address]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -104,7 +191,11 @@ export default function ProfilePage() {
               className="bg-card rounded-2xl p-5 border border-border text-center hover:border-primary/30 hover:shadow-md transition-all"
             >
               <div className="text-3xl font-bold text-primary mb-2">
-                {stat.value}
+                {isLoadingStats ? (
+                  <div className="h-9 w-12 mx-auto bg-muted animate-pulse rounded" />
+                ) : (
+                  stat.value
+                )}
               </div>
               <div className="text-xs text-muted-foreground font-semibold leading-tight uppercase tracking-wide">
                 {stat.label}

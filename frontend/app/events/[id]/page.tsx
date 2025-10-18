@@ -9,23 +9,24 @@ import { fetchEventByAddress, type EventData } from "@/lib/events";
 import { CONTRACT_ABI as FACTORY_ABI, CONTRACT_ADDRESS as FACTORY_ADDRESS } from "@/lib/contracts/factory";
 import { CONTRACT_ABI as EVENT_ABI } from "@/lib/contracts/event";
 import { base } from "wagmi/chains";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, encodeFunctionData } from "viem";
+import type { TransactionError, TransactionResponseType } from "@coinbase/onchainkit/transaction";
+import { Transaction, TransactionButton } from "@coinbase/onchainkit/transaction";
 
 interface Event extends Omit<EventData, 'description'> {
   description: string;
-  hostFid: number;
   isRegistered: boolean;
 }
 
 export default function EventDetailPage() {
   const { isFrameReady, setFrameReady } = useMiniKit();
-  const { address, isConnected } = useAccount();
+  const { address } = useAccount();
   const router = useRouter();
   const params = useParams();
   const eventId = params.id as string;
 
   const [event, setEvent] = useState<Event | null>(null);
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [eventContractAddress, setEventContractAddress] = useState<`0x${string}` | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -77,11 +78,26 @@ export default function EventDetailPage() {
         // Fetch complete event data including capacity and participant count
         const eventData = await fetchEventByAddress(eventAddress);
         if (eventData) {
+          // Check if user is registered
+          let isRegistered = false;
+          if (address) {
+            try {
+              isRegistered = await publicClient.readContract({
+                address: eventAddress,
+                abi: EVENT_ABI,
+                functionName: 'isParticipant',
+                args: [address]
+              }) as boolean;
+            } catch (error) {
+              console.error('Error checking registration status:', error);
+            }
+          }
+
+          setEventContractAddress(eventAddress);
           setEvent({
             ...eventData,
             description: eventData.description || "No description available",
-            hostFid: 0, // TODO: fetch from contract or registry
-            isRegistered: false // TODO: check registration status
+            isRegistered
           });
         }
       } catch (error) {
@@ -92,7 +108,7 @@ export default function EventDetailPage() {
     };
 
     loadEvent();
-  }, [eventId, eventAddresses]);
+  }, [eventId, eventAddresses, address]);
 
   // Initialize the miniapp
   useEffect(() => {
@@ -111,69 +127,104 @@ export default function EventDetailPage() {
     });
   };
 
-  const handleRegister = async () => {
-    if (!isConnected) {
-      alert("Please connect your wallet to register for events");
-      return;
-    }
+  const handleRegisterSuccess = async (response: TransactionResponseType) => {
+    console.log("Registration successful:", response);
 
-    setIsRegistering(true);
+    // Reload event data to get updated registration status
+    if (eventContractAddress && address) {
+      try {
+        const publicClient = createPublicClient({
+          chain: base,
+          transport: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org')
+        });
 
-    try {
-      // TODO: Integrate with smart contract to register for event
-      console.log("Registering for event:", event.id);
-      console.log("User address:", address);
+        const [isRegistered, participantCount] = await Promise.all([
+          publicClient.readContract({
+            address: eventContractAddress,
+            abi: EVENT_ABI,
+            functionName: 'isParticipant',
+            args: [address]
+          }) as Promise<boolean>,
+          publicClient.readContract({
+            address: eventContractAddress,
+            abi: EVENT_ABI,
+            functionName: 'getParticipantCount'
+          }) as Promise<bigint>
+        ]);
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+        setEvent(prev => prev ? {
+          ...prev,
+          isRegistered,
+          attendees: Number(participantCount)
+        } : null);
 
-      setEvent({
-        ...event,
-        isRegistered: true,
-        attendees: event.attendees + 1
-      });
+        // Compose a cast to share the registration
+        if (event) {
+          const castText = `Just registered for ${event.title}! 🎉\n\n${event.description.slice(0, 100)}...\n\n📅 ${formatDate(event.date)} at ${event.time}\n📍 ${event.location}\n\nJoin us on Raduno!`;
+          const eventUrl = `${process.env.NEXT_PUBLIC_URL || "https://raduno.vercel.app"}/events/${eventId}`;
 
-      // Compose a cast to share the event registration
-      const castText = `Just registered for ${event.title}! 🎉\n\n${event.description.slice(0, 100)}...\n\n📅 ${formatDate(event.date)} at ${event.time}\n📍 ${event.location}\n\nJoin us on Raduno!`;
+          try {
+            const result = await composeCastAsync({
+              text: castText,
+              embeds: [eventUrl]
+            });
 
-      // Use OnchainKit's useComposeCast hook
-      const eventUrl = `${process.env.NEXT_PUBLIC_URL || "https://raduno.vercel.app"}/events/${eventId}`;
-      const result = await composeCastAsync({
-        text: castText,
-        embeds: [eventUrl]
-      });
-
-      // result.cast can be null if user cancels
-      if (result?.cast) {
-        console.log("Cast created successfully:", result.cast.hash);
-      } else {
-        console.log("User cancelled the cast");
+            if (result?.cast) {
+              console.log("Cast created successfully:", result.cast.hash);
+            }
+          } catch (error) {
+            console.error("Error composing cast:", error);
+          }
+        }
+      } catch (error) {
+        console.error("Error refreshing event data:", error);
       }
-    } catch (error) {
-      console.error("Error registering for event:", error);
-    } finally {
-      setIsRegistering(false);
     }
   };
 
-  const handleUnregister = async () => {
-    setIsRegistering(true);
+  const handleUnregisterSuccess = async (response: TransactionResponseType) => {
+    console.log("Unregistration successful:", response);
 
-    // TODO: Integrate with smart contract to unregister from event
-    console.log("Unregistering from event:", event.id);
+    // Reload event data to get updated registration status
+    if (eventContractAddress && address) {
+      try {
+        const publicClient = createPublicClient({
+          chain: base,
+          transport: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org')
+        });
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
+        const [isRegistered, participantCount] = await Promise.all([
+          publicClient.readContract({
+            address: eventContractAddress,
+            abi: EVENT_ABI,
+            functionName: 'isParticipant',
+            args: [address]
+          }) as Promise<boolean>,
+          publicClient.readContract({
+            address: eventContractAddress,
+            abi: EVENT_ABI,
+            functionName: 'getParticipantCount'
+          }) as Promise<bigint>
+        ]);
 
-    setEvent({
-      ...event,
-      isRegistered: false,
-      attendees: event.attendees - 1
-    });
+        setEvent(prev => prev ? {
+          ...prev,
+          isRegistered,
+          attendees: Number(participantCount)
+        } : null);
+      } catch (error) {
+        console.error("Error refreshing event data:", error);
+      }
+    }
+  };
 
-    setIsRegistering(false);
+  const handleError = (error: TransactionError) => {
+    console.error("Transaction failed:", error);
   };
 
   const handleShare = async () => {
+    if (!event) return;
+
     setIsSharing(true);
 
     try {
@@ -395,24 +446,55 @@ export default function EventDetailPage() {
 
         {/* Action Button */}
         <div className="pt-2 pb-8">
-          {event.isRegistered ? (
-            <Button
-              variant="destructive"
-              size="lg"
-              onClick={handleUnregister}
-              disabled={isRegistering}
-              className="w-full text-base font-bold h-16 rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02]"
-            >
-              {isRegistering ? "Unregistering..." : "Unregister from Event"}
-            </Button>
-          ) : (
-            <Button
-              size="lg"
-              onClick={handleRegister}
-              className="w-full text-base font-bold h-12 rounded-xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02]"
-            >
-              {isRegistering ? "Registering..." : isFull ? "Event is full" : "Register for Event ✨"}
-            </Button>
+          {eventContractAddress && (
+            event.isRegistered ? (
+              <Transaction
+                calls={[{
+                  to: eventContractAddress,
+                  data: encodeFunctionData({
+                    abi: EVENT_ABI,
+                    functionName: 'unregister'
+                  }),
+                  value: BigInt(0)
+                }]}
+                onSuccess={handleUnregisterSuccess}
+                onError={handleError}
+                capabilities={{
+                  paymasterService: {
+                    url: process.env.NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT!
+                  }
+                }}
+              >
+                <TransactionButton
+                  className="w-full text-base font-bold h-16 rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  text="Unregister from Event"
+                />
+              </Transaction>
+            ) : (
+              <Transaction
+                calls={[{
+                  to: eventContractAddress,
+                  data: encodeFunctionData({
+                    abi: EVENT_ABI,
+                    functionName: 'register'
+                  }),
+                  value: BigInt(0)
+                }]}
+                onSuccess={handleRegisterSuccess}
+                onError={handleError}
+                capabilities={{
+                  paymasterService: {
+                    url: process.env.NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT!
+                  }
+                }}
+              >
+                <TransactionButton
+                  className="w-full text-base font-bold h-12 rounded-xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  text={isFull ? "Event is full" : "Register for Event ✨"}
+                  disabled={isFull}
+                />
+              </Transaction>
+            )
           )}
         </div>
       </div>
