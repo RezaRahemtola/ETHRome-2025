@@ -43,6 +43,9 @@ export default function CreateEventPage() {
   // Redirect if wallet not connected
   useEffect(() => {
     if (!isConnected) {
+      toast.error("Authentication required", {
+        description: "Please connect your wallet to create events."
+      });
       router.push("/");
     }
   }, [isConnected, router]);

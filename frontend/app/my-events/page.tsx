@@ -1,43 +1,35 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContract, usePublicClient } from "wagmi";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 import EventCard from "../components/EventCard";
-
-interface Event {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  location: string;
-  attendees: number;
-  image: string;
-}
-
-// Mock data
-const mockRegisteredEvents: Event[] = [
-  {
-    id: "2",
-    title: "NFT Art Exhibition",
-    date: "2025-11-20",
-    time: "19:00",
-    location: "Milan, Italy",
-    attendees: 28,
-    image: "🎨"
-  }
-];
-
-const mockHostedEvents: Event[] = [];
+import { Button } from "@/components/ui/button";
+import { CONTRACT_ABI as FACTORY_ABI, CONTRACT_ADDRESS as FACTORY_ADDRESS } from "@/lib/contracts/factory";
+import { CONTRACT_ABI as EVENT_ABI } from "@/lib/contracts/event";
+import { base } from "wagmi/chains";
+import { fetchEventsByAddresses, type EventData } from "@/lib/events";
+import { toast } from "sonner";
 
 export default function MyEventsPage() {
   const { isFrameReady, setFrameReady } = useMiniKit();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const router = useRouter();
+  const publicClient = usePublicClient();
   const [tab, setTab] = useState<"registered" | "hosted">("registered");
-  const [registeredEvents] = useState<Event[]>(mockRegisteredEvents);
-  const [hostedEvents] = useState<Event[]>(mockHostedEvents);
+  const [registeredEvents, setRegisteredEvents] = useState<EventData[]>([]);
+  const [hostedEvents, setHostedEvents] = useState<EventData[]>([]);
+  const [isLoadingHosted, setIsLoadingHosted] = useState(true);
+  const [isLoadingRegistered, setIsLoadingRegistered] = useState(true);
+
+  // Get all deployed event addresses
+  const { data: allEventAddresses, isLoading: isLoadingAddresses } = useReadContract({
+    address: FACTORY_ADDRESS as `0x${string}`,
+    abi: FACTORY_ABI,
+    functionName: "getDeployedEvents",
+    chainId: base.id
+  });
 
   // Initialize the miniapp
   useEffect(() => {
@@ -49,11 +41,119 @@ export default function MyEventsPage() {
   // Redirect if wallet not connected
   useEffect(() => {
     if (!isConnected) {
+      toast.error("Authentication required", {
+        description: "Please connect your wallet to view your events."
+      });
       router.push("/");
     }
   }, [isConnected, router]);
 
+  // Fetch hosted events (events where current user is the owner)
+  useEffect(() => {
+    const loadHostedEvents = async () => {
+      if (!address || !publicClient || isLoadingAddresses) {
+        return;
+      }
+
+      if (!allEventAddresses || allEventAddresses.length === 0) {
+        setIsLoadingHosted(false);
+        return;
+      }
+
+      try {
+        // Check each event to see if the user is the owner
+        const ownershipChecks = await Promise.all(
+          (allEventAddresses as `0x${string}`[]).map(async (eventAddress) => {
+            try {
+              const contractOwner = await publicClient.readContract({
+                address: eventAddress,
+                abi: EVENT_ABI,
+                functionName: "owner"
+              }) as `0x${string}`;
+
+              const isOwner = contractOwner.toLowerCase() === address.toLowerCase();
+              return { eventAddress, isOwner };
+            } catch (error) {
+              console.error(`Error checking ownership for ${eventAddress}:`, error);
+              return { eventAddress, isOwner: false };
+            }
+          })
+        );
+
+        const hostedAddresses = ownershipChecks
+          .filter(check => check.isOwner)
+          .map(check => check.eventAddress);
+
+        console.log(`Found ${hostedAddresses.length} hosted events for ${address}`);
+
+        if (hostedAddresses.length > 0) {
+          const eventDetails = await fetchEventsByAddresses(hostedAddresses);
+          setHostedEvents(eventDetails);
+        } else {
+          setHostedEvents([]);
+        }
+      } catch (error) {
+        console.error("Error fetching hosted events:", error);
+        setHostedEvents([]);
+      } finally {
+        setIsLoadingHosted(false);
+      }
+    };
+
+    loadHostedEvents();
+  }, [address, allEventAddresses, publicClient, isLoadingAddresses]);
+
+  // Fetch registered events (events user has registered for)
+  useEffect(() => {
+    const loadRegisteredEvents = async () => {
+      if (!address || !publicClient || isLoadingAddresses) {
+        return;
+      }
+
+      if (!allEventAddresses || allEventAddresses.length === 0) {
+        setIsLoadingRegistered(false);
+        return;
+      }
+
+      try {
+        // Check each event to see if the user is a participant
+        const isParticipantChecks = await Promise.all(
+          (allEventAddresses as `0x${string}`[]).map(async (eventAddress) => {
+            try {
+              const isParticipant = await publicClient.readContract({
+                address: eventAddress,
+                abi: EVENT_ABI,
+                functionName: "isParticipant",
+                args: [address]
+              });
+              return { eventAddress, isParticipant };
+            } catch (error) {
+              console.error(`Error checking participation for ${eventAddress}:`, error);
+              return { eventAddress, isParticipant: false };
+            }
+          })
+        );
+
+        const registeredAddresses = isParticipantChecks
+          .filter(check => check.isParticipant)
+          .map(check => check.eventAddress);
+
+        if (registeredAddresses.length > 0) {
+          const eventDetails = await fetchEventsByAddresses(registeredAddresses);
+          setRegisteredEvents(eventDetails);
+        }
+      } catch (error) {
+        console.error("Error fetching registered events:", error);
+      } finally {
+        setIsLoadingRegistered(false);
+      }
+    };
+
+    loadRegisteredEvents();
+  }, [address, allEventAddresses, publicClient, isLoadingAddresses]);
+
   const events = tab === "registered" ? registeredEvents : hostedEvents;
+  const isLoading = tab === "registered" ? isLoadingRegistered : isLoadingHosted;
 
   return (
     <div className="min-h-screen bg-background">
@@ -73,9 +173,11 @@ export default function MyEventsPage() {
               }`}
             >
               Registered
-              <span className={`ml-1.5 text-xs ${tab === "registered" ? "text-primary" : "text-muted-foreground"}`}>
-                {registeredEvents.length}
-              </span>
+              {!isLoadingRegistered && (
+                <span className={`ml-1.5 text-xs ${tab === "registered" ? "text-primary" : "text-muted-foreground"}`}>
+                  {registeredEvents.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setTab("hosted")}
@@ -86,9 +188,11 @@ export default function MyEventsPage() {
               }`}
             >
               Hosting
-              <span className={`ml-1.5 text-xs ${tab === "hosted" ? "text-primary" : "text-muted-foreground"}`}>
-                {hostedEvents.length}
-              </span>
+              {!isLoadingHosted && (
+                <span className={`ml-1.5 text-xs ${tab === "hosted" ? "text-primary" : "text-muted-foreground"}`}>
+                  {hostedEvents.length}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -96,7 +200,22 @@ export default function MyEventsPage() {
 
       {/* Events List */}
       <div className="px-6 py-6 pb-nav">
-        {events.length > 0 ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="glass-card rounded-2xl p-4 animate-pulse">
+                <div className="flex gap-4">
+                  <div className="w-16 h-16 rounded-xl bg-muted"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-5 bg-muted rounded w-3/4"></div>
+                    <div className="h-4 bg-muted rounded w-1/2"></div>
+                    <div className="h-4 bg-muted rounded w-2/3"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : events.length > 0 ? (
           <div className="space-y-3">
             {events.map((event) => (
               <EventCard
@@ -107,6 +226,7 @@ export default function MyEventsPage() {
                 time={event.time}
                 location={event.location}
                 attendees={event.attendees}
+                maxAttendees={event.maxAttendees}
                 image={event.image}
               />
             ))}
@@ -124,12 +244,13 @@ export default function MyEventsPage() {
                 ? "Discover amazing events and register to see them here"
                 : "Share your passion by creating your first event"}
             </p>
-            <button
+            <Button
+              variant="outline"
               onClick={() => router.push(tab === "registered" ? "/events" : "/create")}
-              className="bg-primary text-primary-foreground px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-shadow"
+              className="px-8 py-3 h-auto"
             >
               {tab === "registered" ? "Browse Events" : "Create Event"}
-            </button>
+            </Button>
           </div>
         )}
       </div>

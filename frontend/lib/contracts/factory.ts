@@ -139,7 +139,7 @@ export const CONTRACT_ABI = [
 ] as const;
 
 // Replace with your deployed contract address
-export const CONTRACT_ADDRESS = "0x6C4D54B781c373D25d6654D2A143a2DA112dFd2A";
+export const CONTRACT_ADDRESS = "0xFb7B5cadb3EB1dA033Ba1872fa42eB2900b26491";
 
 // If your contract constructor requires arguments, define their types here
 // Example: export const CONSTRUCTOR_ARGS = ["Initial Value", 100] as const;

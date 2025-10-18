@@ -9,6 +9,7 @@ import { CONTRACT_ABI as FACTORY_ABI, CONTRACT_ADDRESS as FACTORY_ADDRESS } from
 import { CONTRACT_ABI as EVENT_ABI } from "@/lib/contracts/event";
 import { base } from "wagmi/chains";
 import { createPublicClient, http } from "viem";
+import { toast } from "sonner";
 
 export default function ProfilePage() {
   const { isFrameReady, setFrameReady, context } = useMiniKit();
@@ -39,6 +40,9 @@ export default function ProfilePage() {
   // Redirect if wallet not connected
   useEffect(() => {
     if (!isConnected) {
+      toast.error("Authentication required", {
+        description: "Please connect your wallet to view your profile."
+      });
       router.push("/");
     }
   }, [isConnected, router]);

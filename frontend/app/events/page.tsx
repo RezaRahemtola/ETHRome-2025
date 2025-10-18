@@ -8,11 +8,13 @@ import { useReadContract } from "wagmi";
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from "@/lib/contracts/factory";
 import { base } from "wagmi/chains";
 import { fetchEventsByAddresses, type EventData } from "@/lib/events";
+import { Button } from "@/components/ui/button";
 
 export default function EventsPage() {
   const { isFrameReady, setFrameReady } = useMiniKit();
   const router = useRouter();
   const [events, setEvents] = useState<EventData[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<EventData[]>([]);
   const [filter, setFilter] = useState<"all" | "upcoming" | "past">("upcoming");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -34,6 +36,11 @@ export default function EventsPage() {
   // Fetch event details when addresses are loaded
   useEffect(() => {
     const loadEvents = async () => {
+      // Wait for contract call to complete before showing "no events"
+      if (isLoadingAddresses) {
+        return;
+      }
+
       if (!eventAddresses || eventAddresses.length === 0) {
         setIsLoading(false);
         return;
@@ -50,7 +57,37 @@ export default function EventsPage() {
     };
 
     loadEvents();
-  }, [eventAddresses]);
+  }, [eventAddresses, isLoadingAddresses]);
+
+  // Filter events based on the selected filter
+  useEffect(() => {
+    if (events.length === 0) {
+      setFilteredEvents([]);
+      return;
+    }
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
+
+    let filtered = events;
+
+    if (filter === "upcoming") {
+      filtered = events.filter(event => {
+        // Parse the date from the event
+        const eventDate = new Date(event.date);
+        eventDate.setHours(0, 0, 0, 0);
+        return eventDate >= now;
+      });
+    } else if (filter === "past") {
+      filtered = events.filter(event => {
+        const eventDate = new Date(event.date);
+        eventDate.setHours(0, 0, 0, 0);
+        return eventDate < now;
+      });
+    }
+
+    setFilteredEvents(filtered);
+  }, [events, filter]);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -106,7 +143,7 @@ export default function EventsPage() {
         ) : (
           <>
             <div className="space-y-3">
-              {events.map((event) => (
+              {filteredEvents.map((event) => (
                 <EventCard
                   key={event.id}
                   id={event.id}
@@ -121,21 +158,29 @@ export default function EventsPage() {
               ))}
             </div>
 
-            {events.length === 0 && (
+            {filteredEvents.length === 0 && (
               <div className="text-center py-16">
                 <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center text-4xl">
                   📅
                 </div>
-                <h3 className="text-xl font-bold mb-2">No events found</h3>
+                <h3 className="text-xl font-bold mb-2">
+                  {events.length === 0 ? "No events found" : `No ${filter} events`}
+                </h3>
                 <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-                  Be the first to create an event and start building your community!
+                  {events.length === 0
+                    ? "Be the first to create an event and start building your community!"
+                    : `There are no ${filter} events at the moment. Check other filters!`
+                  }
                 </p>
-                <button
-                  onClick={() => router.push("/create")}
-                  className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-shadow"
-                >
-                  Create Event
-                </button>
+                {events.length === 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push("/create")}
+                    className="px-6 py-3 h-auto"
+                  >
+                    Create Event
+                  </Button>
+                )}
               </div>
             )}
           </>

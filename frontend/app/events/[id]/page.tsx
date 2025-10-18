@@ -16,6 +16,7 @@ import { Transaction, TransactionButton } from "@coinbase/onchainkit/transaction
 interface Event extends Omit<EventData, 'description'> {
   description: string;
   isRegistered: boolean;
+  isHost: boolean;
 }
 
 export default function EventDetailPage() {
@@ -78,18 +79,29 @@ export default function EventDetailPage() {
         // Fetch complete event data including capacity and participant count
         const eventData = await fetchEventByAddress(eventAddress);
         if (eventData) {
-          // Check if user is registered
+          // Check if user is registered and if user is the owner
           let isRegistered = false;
+          let isHost = false;
           if (address) {
             try {
-              isRegistered = await publicClient.readContract({
-                address: eventAddress,
-                abi: EVENT_ABI,
-                functionName: 'isParticipant',
-                args: [address]
-              }) as boolean;
+              const [participantStatus, contractOwner] = await Promise.all([
+                publicClient.readContract({
+                  address: eventAddress,
+                  abi: EVENT_ABI,
+                  functionName: 'isParticipant',
+                  args: [address]
+                }) as Promise<boolean>,
+                publicClient.readContract({
+                  address: eventAddress,
+                  abi: EVENT_ABI,
+                  functionName: 'owner'
+                }) as Promise<`0x${string}`>
+              ]);
+
+              isRegistered = participantStatus;
+              isHost = contractOwner.toLowerCase() === address.toLowerCase();
             } catch (error) {
-              console.error('Error checking registration status:', error);
+              console.error('Error checking registration/ownership status:', error);
             }
           }
 
@@ -97,7 +109,8 @@ export default function EventDetailPage() {
           setEvent({
             ...eventData,
             description: eventData.description || "No description available",
-            isRegistered
+            isRegistered,
+            isHost
           });
         }
       } catch (error) {
@@ -330,13 +343,21 @@ export default function EventDetailPage() {
       <div className="px-6 py-6 space-y-6">
         {/* Title and Host */}
         <div className="space-y-2">
-          <div
-            className="inline-block px-4 py-1.5 rounded-full gradient-primary-secondary text-white text-xs font-bold mb-2 shadow-md">
-            {event.category.toUpperCase()}
+          <div className="flex items-center gap-2 mb-2">
+            <div
+              className="inline-block px-4 py-1.5 rounded-full gradient-primary-secondary text-white text-xs font-bold shadow-md">
+              {event.category.toUpperCase()}
+            </div>
+            {event.isHost && (
+              <div
+                className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold shadow-md">
+                YOUR EVENT
+              </div>
+            )}
           </div>
           <h1 className="text-4xl font-bold leading-tight text-gradient">{event.title}</h1>
           <p className="text-base text-muted-foreground">
-            Hosted by <span className="font-semibold text-foreground">{event.host}</span>
+            Hosted by <span className="font-semibold text-foreground">{event.isHost ? "You" : event.host}</span>
           </p>
         </div>
 
@@ -447,7 +468,15 @@ export default function EventDetailPage() {
         {/* Action Button */}
         <div className="pt-2 pb-8">
           {eventContractAddress && (
-            event.isRegistered ? (
+            event.isHost ? (
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <div className="text-4xl mb-3">🎉</div>
+                <p className="text-lg font-bold mb-1">You&#39;re hosting this event!</p>
+                <p className="text-sm text-muted-foreground">
+                  Manage your event and see who&#39;s registered
+                </p>
+              </div>
+            ) : event.isRegistered ? (
               <Transaction
                 calls={[{
                   to: eventContractAddress,

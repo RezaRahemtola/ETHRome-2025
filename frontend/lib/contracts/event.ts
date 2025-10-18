@@ -14,6 +14,11 @@ export const CONTRACT_ABI = [
     "inputs": [
       {
         "internalType": "address",
+        "name": "_realOwner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
         "name": "_l2Registrar",
         "type": "address"
       },
