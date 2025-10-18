@@ -13,15 +13,15 @@ interface EventCardProps {
 }
 
 export default function EventCard({
-  id,
-  title,
-  date,
-  time,
-  location,
-  attendees,
-  maxAttendees,
-  image,
-}: EventCardProps) {
+                                    id,
+                                    title,
+                                    date,
+                                    time,
+                                    location,
+                                    attendees,
+                                    maxAttendees,
+                                    image
+                                  }: Readonly<EventCardProps>) {
   const router = useRouter();
 
   const formatDate = (dateString: string) => {
@@ -40,7 +40,7 @@ export default function EventCard({
   const gradients = [
     "from-primary to-accent",
     "from-accent to-secondary",
-    "from-secondary to-primary",
+    "from-secondary to-primary"
   ];
 
   // Use the id to consistently pick a gradient for each event
@@ -53,20 +53,24 @@ export default function EventCard({
       className="group w-full glass-card rounded-2xl p-4 border border-border/50 hover-lift transition-all active:scale-[0.98] text-left hover:border-primary/50 relative overflow-hidden"
     >
       {/* Gradient accent line on hover */}
-      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+      <div
+        className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
 
       <div className="flex gap-4">
         {/* Event Icon with gradient background */}
         <div className="relative">
-          <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-2xl flex-shrink-0 shadow-md group-hover:scale-110 group-hover:shadow-lg transition-all duration-300`}>
+          <div
+            className={`w-14 h-14 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-2xl flex-shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-lg transition-all duration-300`}>
             {image}
           </div>
-          <div className={`absolute -inset-0.5 rounded-xl bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 -z-10`} />
+          <div
+            className={`absolute -inset-0.5 rounded-xl bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-30 blur-md transition-opacity duration-300 -z-10`} />
         </div>
 
         {/* Event Info */}
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-base text-card-foreground mb-1.5 truncate group-hover:text-primary transition-colors">
+          <h3
+            className="font-semibold text-base text-card-foreground mb-1.5 truncate group-hover:text-primary transition-colors">
             {title}
           </h3>
           <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
@@ -79,7 +83,8 @@ export default function EventCard({
               <span>{location}</span>
             </span>
             {maxAttendees && (
-              <span className={`font-semibold px-2 py-1 rounded-lg ${getAvailabilityColor(attendees, maxAttendees)} bg-current/10`}>
+              <span
+                className={`font-semibold px-2 py-1 rounded-lg ${getAvailabilityColor(attendees, maxAttendees)} bg-current/10`}>
                 {attendees}/{maxAttendees}
               </span>
             )}
@@ -87,7 +92,8 @@ export default function EventCard({
         </div>
 
         {/* Arrow with animated slide */}
-        <div className="flex items-center text-muted-foreground group-hover:text-primary transition-all group-hover:translate-x-1 duration-300">
+        <div
+          className="flex items-center text-muted-foreground group-hover:text-primary transition-all group-hover:translate-x-1 duration-300">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
