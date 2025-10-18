@@ -176,6 +176,21 @@ const EVENT_ABI = [
   },
 ] as const;
 
+const L2_REGISTRY_ABI = [
+  {
+    inputs: [
+      { internalType: "bytes32", name: "node", type: "bytes32" },
+      { internalType: "string", name: "key", type: "string" }
+    ],
+    name: "text",
+    outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+const L2_REGISTRY_ADDRESS = "0xC02f3b4CbE3431a46A19416211AeE7F004d829C3" as Address;
+
 // ============================================================================
 // Blockchain Client
 // ============================================================================
@@ -196,6 +211,51 @@ const publicClient = createPublicClient({
 // ============================================================================
 // Blockchain Query Functions
 // ============================================================================
+
+/**
+ * Fetch ENS text records for an event
+ *
+ * @param label - The event label (e.g., "eventname")
+ * @returns Object with nickname and description from ENS, or null if not available
+ */
+async function fetchENSData(label: string): Promise<{ nickname: string | null; description: string | null }> {
+  try {
+    // Import namehash dynamically to avoid linter issues
+    const { namehash: getNamehash } = await import("viem");
+
+    // Construct the full ENS name
+    const ensName = `${label}.raduno.eth`;
+
+    // Get the namehash for the ENS name
+    const node = getNamehash(ensName);
+
+    console.log(`    📖 Fetching ENS data for: ${ensName}`);
+
+    // Query the L2Registry for nickname and description in parallel
+    const [nickname, description] = await Promise.all([
+      publicClient.readContract({
+        address: L2_REGISTRY_ADDRESS,
+        abi: L2_REGISTRY_ABI,
+        functionName: "text",
+        args: [node, "nickname"],
+      }).catch(() => null),
+      publicClient.readContract({
+        address: L2_REGISTRY_ADDRESS,
+        abi: L2_REGISTRY_ABI,
+        functionName: "text",
+        args: [node, "description"],
+      }).catch(() => null),
+    ]);
+
+    return {
+      nickname: nickname || null,
+      description: description || null,
+    };
+  } catch (error) {
+    console.error(`    ⚠️  Error fetching ENS data for ${label}:`, error);
+    return { nickname: null, description: null };
+  }
+}
 
 /**
  * Fetch group configurations from blockchain
@@ -258,10 +318,22 @@ async function fetchGroupConfigurations(): Promise<GroupConfig[]> {
         console.log(`    Total members: ${memberAddresses.length}`);
         console.log(`    Label: ${label || 'No label'}`);
 
+        // Fetch ENS data for this event
+        const ensData = await fetchENSData(label);
+
+        // Use ENS nickname as name, fall back to label
+        const eventName = `Raduro - ${ensData.nickname}` || label || `Event ${eventAddress.slice(0, 8)}...`;
+
+        // Use ENS description, fall back to default
+        const eventDescription = ensData.description || `Event group for ${label || eventAddress}`;
+
+        console.log(`    ENS Name: ${ensData.nickname || '(not set)'}`);
+        console.log(`    ENS Description: ${ensData.description || '(not set)'}`);
+
         configs.push({
           address: eventAddress.toLowerCase(),
-          name: label || `Event ${eventAddress.slice(0, 8)}...`,
-          description: `Event group for ${label || eventAddress}`,
+          name: eventName,
+          description: eventDescription,
           memberAddresses,
         });
       } catch (error) {
@@ -454,7 +526,7 @@ async function syncGroupMembers(
     // Find members to remove (in current but not in target)
     // IMPORTANT: Never remove the agent itself!
     const addressesToRemove = Array.from(currentMemberAddresses).filter(
-      (addr) => !targetAddresses.has(addr) && addr !== agent.address.toLowerCase()
+      (addr) => !targetAddresses.has(addr) && addr !== agent.address!.toLowerCase()
     );
 
     // Add new members
@@ -554,7 +626,7 @@ async function processGroupConfigurations(): Promise<void> {
 
       // If not in memory, check if it exists in the database
       if (!managedGroup) {
-        const existingGroupId = getGroupIdByAddress(normalizedAddress, agent.address);
+        const existingGroupId = getGroupIdByAddress(normalizedAddress, agent.address!);
 
         if (existingGroupId) {
           // Group exists in DB but not in memory - load it
@@ -567,14 +639,13 @@ async function processGroupConfigurations(): Promise<void> {
             const conversation = conversations.find(c => c.id === existingGroupId);
 
             if (conversation) {
-              const convType = conversation.isGroupConversation ? 'group' : 'DM';
               managedGroup = {
                 group: conversation as Group,
                 primaryAddress: config.address,
                 lastSyncedAt: new Date(),
               };
               groupMap.set(normalizedAddress, managedGroup);
-              console.log(`✅ Loaded existing ${convType} from XMTP (ID: ${existingGroupId.slice(0, 16)}...)`);
+              console.log(`✅ Loaded existing conversation from XMTP (ID: ${existingGroupId.slice(0, 16)}...)`);
             } else {
               console.log(`⚠️  Conversation ${existingGroupId} not found in XMTP`);
               console.log(`   Will create a new one.`);
@@ -599,7 +670,7 @@ async function processGroupConfigurations(): Promise<void> {
           groupMap.set(normalizedAddress, newManagedGroup);
 
           // Save to database
-          saveGroupMapping(normalizedAddress, newManagedGroup, agent.address);
+          saveGroupMapping(normalizedAddress, newManagedGroup, agent.address!);
           console.log(`💾 Saved group mapping to database`);
         }
       } else {
@@ -637,55 +708,6 @@ const signer = createSigner(user);
 const agent = await Agent.create(signer, {
   env: xmtpEnv,
   dbPath: process.env.XMTP_DB_PATH || null,
-});
-
-// ============================================================================
-// Message Handlers
-// ============================================================================
-
-// Handle text messages (for debugging/admin purposes)
-agent.on("text", async (ctx) => {
-  const message = ctx.message.content;
-
-  // Simple admin command to trigger sync
-  if (message.toLowerCase() === "/sync") {
-    await ctx.sendText("🔄 Starting manual group sync...");
-    await processGroupConfigurations();
-    await ctx.sendText("✅ Sync completed!");
-    return;
-  }
-
-  // Status command
-  if (message.toLowerCase() === "/status") {
-    const status = `📊 Agent Status:
-- Managed Groups: ${groupMap.size}
-- Agent Address: ${agent.address}
-
-Groups:
-${Array.from(groupMap.entries())
-  .map(
-    ([addr, mg]) =>
-      `  • ${addr.slice(0, 10)}... - ${mg.group.name} (${mg.group.id.slice(0, 10)}...)`
-  )
-  .join("\n")}`;
-
-    await ctx.sendText(status);
-    return;
-  }
-
-  // Help command
-  if (message.toLowerCase() === "/help") {
-    await ctx.sendText(`📖 Available Commands:
-/sync - Manually trigger group sync
-/status - Show agent status
-/help - Show this help message`);
-    return;
-  }
-
-  // Default response
-  await ctx.sendText(
-    "👋 Hi! I'm a group management agent. Use /help to see available commands."
-  );
 });
 
 // ============================================================================
