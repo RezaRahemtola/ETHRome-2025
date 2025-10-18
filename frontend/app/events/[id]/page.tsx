@@ -1,53 +1,98 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useComposeCast, useMiniKit } from "@coinbase/onchainkit/minikit";
-import { useAccount } from "wagmi";
-import { useRouter } from "next/navigation";
+import { useAccount, useReadContract } from "wagmi";
+import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Share2 } from "lucide-react";
+import { fetchEventByAddress, type EventData } from "@/lib/events";
+import { CONTRACT_ABI as FACTORY_ABI, CONTRACT_ADDRESS as FACTORY_ADDRESS } from "@/lib/contracts/factory";
+import { CONTRACT_ABI as EVENT_ABI } from "@/lib/contracts/event";
+import { base } from "wagmi/chains";
+import { createPublicClient, http } from "viem";
 
-interface Event {
-  id: string;
-  title: string;
+interface Event extends Omit<EventData, 'description'> {
   description: string;
-  date: string;
-  time: string;
-  location: string;
-  attendees: number;
-  maxAttendees: number;
-  image: string;
-  host: string;
   hostFid: number;
-  category: string;
   isRegistered: boolean;
 }
-
-// Mock data - will be replaced with smart contract data
-const mockEvent: Event = {
-  id: "1",
-  title: "Web3 Developers Meetup",
-  description: "Join us for an exciting evening of Web3 development discussions, networking, and hands-on workshops. Perfect for developers of all levels interested in blockchain technology and decentralized applications.",
-  date: "2025-11-15",
-  time: "18:00",
-  location: "Rome, Italy",
-  attendees: 42,
-  maxAttendees: 100,
-  image: "🌐",
-  host: "DevDAO",
-  hostFid: 12345,
-  category: "meetup",
-  isRegistered: false
-};
 
 export default function EventDetailPage() {
   const { isFrameReady, setFrameReady } = useMiniKit();
   const { address, isConnected } = useAccount();
   const router = useRouter();
-  const [event, setEvent] = useState<Event>(mockEvent);
+  const params = useParams();
+  const eventId = params.id as string;
+
+  const [event, setEvent] = useState<Event | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const { composeCastAsync } = useComposeCast();
+
+  // Get all deployed event addresses from factory
+  const { data: eventAddresses } = useReadContract({
+    address: FACTORY_ADDRESS as `0x${string}`,
+    abi: FACTORY_ABI,
+    functionName: "getDeployedEvents",
+    chainId: base.id
+  });
+
+  // Fetch event data by finding the contract address with matching label
+  useEffect(() => {
+    const loadEvent = async () => {
+      if (!eventAddresses || eventAddresses.length === 0) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const publicClient = createPublicClient({
+          chain: base,
+          transport: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org')
+        });
+
+        // Find the event contract with the matching label
+        let eventAddress: `0x${string}` | null = null;
+        for (const addr of eventAddresses as `0x${string}`[]) {
+          const label = await publicClient.readContract({
+            address: addr,
+            abi: EVENT_ABI,
+            functionName: 'label'
+          }) as string;
+
+          if (label === eventId) {
+            eventAddress = addr;
+            break;
+          }
+        }
+
+        if (!eventAddress) {
+          console.error('Event not found:', eventId);
+          setIsLoading(false);
+          return;
+        }
+
+        // Fetch complete event data including capacity and participant count
+        const eventData = await fetchEventByAddress(eventAddress);
+        if (eventData) {
+          setEvent({
+            ...eventData,
+            description: eventData.description || "No description available",
+            hostFid: 0, // TODO: fetch from contract or registry
+            isRegistered: false // TODO: check registration status
+          });
+        }
+      } catch (error) {
+        console.error('Error loading event:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadEvent();
+  }, [eventId, eventAddresses]);
 
   // Initialize the miniapp
   useEffect(() => {
@@ -92,9 +137,10 @@ export default function EventDetailPage() {
       const castText = `Just registered for ${event.title}! 🎉\n\n${event.description.slice(0, 100)}...\n\n📅 ${formatDate(event.date)} at ${event.time}\n📍 ${event.location}\n\nJoin us on Raduno!`;
 
       // Use OnchainKit's useComposeCast hook
+      const eventUrl = `${process.env.NEXT_PUBLIC_URL || "https://raduno.vercel.app"}/events/${eventId}`;
       const result = await composeCastAsync({
         text: castText,
-        embeds: [process.env.NEXT_PUBLIC_URL || ""]
+        embeds: [eventUrl]
       });
 
       // result.cast can be null if user cancels
@@ -134,10 +180,10 @@ export default function EventDetailPage() {
       // Compose a cast to share the event
       const castText = `Check out this event: ${event.title}!\n\n📅 ${formatDate(event.date)} at ${event.time}\n📍 ${event.location}\n👥 ${event.attendees} attendees already!\n\nDiscover more events on Raduno 🚀`;
 
+      const eventUrl = `${process.env.NEXT_PUBLIC_URL || "https://raduno.vercel.app"}/events/${eventId}`;
       const result = await composeCastAsync({
         text: castText,
-        // TODO: edit URL to point to the specific event page
-        embeds: [process.env.NEXT_PUBLIC_URL || ""]
+        embeds: [eventUrl]
       });
 
       if (result?.cast) {
@@ -152,8 +198,23 @@ export default function EventDetailPage() {
     }
   };
 
-  const availabilityPercentage = (event.attendees / event.maxAttendees) * 100;
-  const isFull = availabilityPercentage >= 100;
+  // Show loading state while fetching data
+  if (isLoading || !event) {
+    return (
+      <div className="min-h-screen bg-background relative overflow-hidden">
+        <div className="fixed inset-0 gradient-mesh opacity-30 -z-10" />
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="text-6xl mb-4">⏳</div>
+            <p className="text-muted-foreground">Loading event details...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const availabilityPercentage = event.maxAttendees > 0 ? (event.attendees / event.maxAttendees) * 100 : 0;
+  const isFull = event.maxAttendees > 0 && availabilityPercentage >= 100;
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -205,7 +266,10 @@ export default function EventDetailPage() {
         <div className="absolute bottom-6 right-6">
           <div className="px-4 py-2.5 rounded-full glass border border-border/50 shadow-xl">
             <span className="text-sm font-bold text-gradient">
-              {event.attendees}/{event.maxAttendees} attending
+              {event.maxAttendees === 0
+                ? `${event.attendees} attending`
+                : `${event.attendees}/${event.maxAttendees} attending`
+              }
             </span>
           </div>
         </div>
@@ -296,20 +360,27 @@ export default function EventDetailPage() {
                 className="absolute -inset-1 rounded-xl gradient-primary-secondary opacity-0 group-hover:opacity-40 blur-lg transition-opacity duration-300 -z-10" />
             </div>
             <div className="flex-1">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Capacity</div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                {event.maxAttendees === 0 ? "Attendees" : "Capacity"}
+              </div>
               <div className="font-bold text-foreground text-lg">
-                {event.attendees} / {event.maxAttendees} registered
+                {event.maxAttendees === 0
+                  ? `${event.attendees} registered`
+                  : `${event.attendees} / ${event.maxAttendees} registered`
+                }
               </div>
-              <div className="w-full bg-border/50 rounded-full h-3 mt-3 overflow-hidden shadow-inner">
-                <div
-                  className={`rounded-full h-3 transition-all duration-500 ${
-                    availabilityPercentage >= 90 ? "bg-destructive" :
-                      availabilityPercentage >= 70 ? "bg-warning" :
-                        "gradient-primary-secondary"
-                  }`}
-                  style={{ width: `${Math.min(availabilityPercentage, 100)}%` }}
-                />
-              </div>
+              {event.maxAttendees > 0 && (
+                <div className="w-full bg-border/50 rounded-full h-3 mt-3 overflow-hidden shadow-inner">
+                  <div
+                    className={`rounded-full h-3 transition-all duration-500 ${
+                      availabilityPercentage >= 90 ? "bg-destructive" :
+                        availabilityPercentage >= 70 ? "bg-warning" :
+                          "gradient-primary-secondary"
+                    }`}
+                    style={{ width: `${Math.min(availabilityPercentage, 100)}%` }}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

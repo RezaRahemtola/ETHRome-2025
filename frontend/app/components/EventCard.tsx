@@ -82,10 +82,10 @@ export default function EventCard({
               <span className="inline-block">📍</span>
               <span>{location}</span>
             </span>
-            {maxAttendees && (
+            {attendees > 0 && (
               <span
                 className={`font-semibold px-2 py-1 rounded-lg ${getAvailabilityColor(attendees, maxAttendees)} bg-current/10`}>
-                {attendees}/{maxAttendees}
+                {maxAttendees === 0 ? attendees : `${attendees}/${maxAttendees}`}
               </span>
             )}
           </div>

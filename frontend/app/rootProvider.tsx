@@ -16,6 +16,7 @@ export function RootProvider({ children }: Readonly<{ children: ReactNode }>) {
       <OnchainKitProvider
         apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
         chain={base}
+        rpcUrl={process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org'}
         config={{
           appearance: {
             mode: "auto"
