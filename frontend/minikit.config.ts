@@ -37,4 +37,5 @@ export const minikitConfig = {
 
     ogImageUrl: `${ROOT_URL}/icon-og.png`
   }
+
 } as const;

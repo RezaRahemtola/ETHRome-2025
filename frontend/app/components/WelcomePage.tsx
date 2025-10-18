@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 export default function WelcomePage() {
@@ -42,8 +43,14 @@ export default function WelcomePage() {
           <div className="flex justify-center">
             <div className="relative">
               <div
-                className="w-16 h-16 rounded-2xl gradient-primary-secondary flex items-center justify-center text-3xl shadow-2xl shadow-primary/30">
-                🎪
+                className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center shadow-2xl shadow-primary/30 overflow-hidden">
+                <Image
+                  src="/icon.png"
+                  alt="Raduno"
+                  width={80}
+                  height={80}
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div className="absolute -inset-1 rounded-2xl gradient-primary-secondary opacity-50 blur-xl -z-10" />
             </div>

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
-import { useAccount } from "wagmi";
+import { useAccount, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowLeft } from "lucide-react";
+import { CONSTRUCTOR_ARGS, CONTRACT_ABI, CONTRACT_ADDRESS } from "@/lib/contract";
+import { getAddress } from "viem";
 
 export default function CreateEventPage() {
   const { isFrameReady, setFrameReady, context } = useMiniKit();
@@ -26,6 +28,25 @@ export default function CreateEventPage() {
     ipfsHash: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdEventAddress, setCreatedEventAddress] = useState<string | null>(null);
+
+  // Contract write hook
+  const {
+    writeContract,
+    data: hash,
+    isPending: isCreating,
+    isError: isCreateError,
+    error: createError
+  } = useWriteContract();
+
+  // Wait for transaction to be confirmed
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    data: receipt
+  } = useWaitForTransactionReceipt({
+    hash
+  });
 
   // Initialize the miniapp
   useEffect(() => {
@@ -41,19 +62,75 @@ export default function CreateEventPage() {
     }
   }, [isConnected, router]);
 
+  // Handle successful transaction and extract event address from logs
+  useEffect(() => {
+    const extractEventAddress = async () => {
+      if (isConfirmed && receipt) {
+        try {
+          console.log("Event created! Checking receipt for EventCreated event...");
+          console.log(receipt);
+
+          // The createEvent function returns an address and emits an EventCreated event
+          // We can extract the event address from the logs
+          if (receipt.logs && receipt.logs.length > 0) {
+            // Look for EventCreated event (first indexed parameter is the eventAddress)
+            const eventCreatedLog = receipt.logs.find(log =>
+              log.topics[0] === "0xa54c7891edaa21526f9ad14c69ae2fd966ac0969fcd9a990a4e006427afd382e"
+            );
+
+            if (eventCreatedLog && eventCreatedLog.topics[1]) {
+              // The first indexed parameter (eventAddress) is in topics[1]
+              // Convert from bytes32 to address (remove padding)
+              const paddedAddress = eventCreatedLog.topics[1];
+              const addr = getAddress("0x" + paddedAddress.slice(-40));
+              console.log("Created event address:", addr);
+              setCreatedEventAddress(addr);
+              setIsSubmitting(false);
+
+              // Redirect to events page after successful creation
+              setTimeout(() => router.push("/events"), 2000);
+              return;
+            }
+          }
+
+          console.log("Event address not found in receipt logs");
+          setIsSubmitting(false);
+        } catch (error) {
+          console.log(`Error: ${error instanceof Error ? error.message : String(error)}`);
+          setIsSubmitting(false);
+        }
+      }
+    };
+
+    extractEventAddress();
+  }, [isConfirmed, receipt, router]);
+
+  // Handle errors
+  useEffect(() => {
+    if (isCreateError) {
+      setIsSubmitting(false);
+    }
+  }, [isCreateError]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // TODO: Integrate with smart contract to create event
     console.log("Creating event:", formData);
     console.log("Creator FID:", context?.user?.fid);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    setIsSubmitting(false);
-    router.push("/events");
+    try {
+      // Call the createEvent method on the smart contract
+      writeContract({
+        address: CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI,
+        functionName: "createEvent",
+        args: CONSTRUCTOR_ARGS
+      });
+    } catch (error) {
+      console.error("Create event error:", error);
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -318,15 +395,70 @@ export default function CreateEventPage() {
           </AccordionItem>
         </Accordion>
 
+        {/* Transaction Status */}
+        {hash && (
+          <div className="p-4 bg-muted/50 rounded-xl border border-border space-y-3">
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground mb-2">Transaction Hash:</div>
+              <div className="text-xs font-mono break-all">{hash}</div>
+            </div>
+
+            {isConfirming && (
+              <div className="text-sm text-primary animate-pulse">
+                ⏳ Waiting for confirmation...
+              </div>
+            )}
+
+            {isConfirmed && createdEventAddress && (
+              <div className="space-y-3">
+                <div className="text-sm text-green-500 font-semibold">
+                  ✓ Event created successfully!
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground mb-2">Event Contract Address:</div>
+                  <div className="text-xs font-mono break-all bg-background/50 p-3 rounded-lg border border-primary/20">
+                    {createdEventAddress}
+                  </div>
+                  <a
+                    href={`https://basescan.org/address/${createdEventAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 text-xs text-primary hover:underline inline-block"
+                  >
+                    View on Basescan →
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isCreateError && createError && (
+          <div className="p-4 bg-destructive/10 rounded-xl border border-destructive/20">
+            <div className="text-sm text-destructive font-semibold mb-2">Transaction Failed</div>
+            <div className="text-xs text-destructive/80">{createError.message}</div>
+          </div>
+        )}
+
         {/* Submit Button */}
         <div className="pt-6 space-y-3">
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isCreating || isConfirming}
             size="lg"
             className="w-full text-base font-bold h-16 rounded-2xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
-            {isSubmitting ? (
+            {isCreating ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
+                     viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Waiting for Approval...
+              </span>
+            ) : isConfirming ? (
               <span className="flex items-center gap-2">
                 <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
                      viewBox="0 0 24 24">
