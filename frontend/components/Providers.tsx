@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Toaster } from "@/components/ui/sonner";
 
 const ErudaProvider = dynamic(
   () => import("../components/eruda-provider").then((c) => c.Eruda),
@@ -8,5 +9,10 @@ const ErudaProvider = dynamic(
 );
 
 export function Providers({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <ErudaProvider>{children}</ErudaProvider>;
+  return (
+    <ErudaProvider>
+      {children}
+      <Toaster />
+    </ErudaProvider>
+  );
 }

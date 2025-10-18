@@ -28,14 +28,17 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
     /// @notice The label chosen (string) for this specific event subdomain
     string public label;
 
-    bool private ensInitialized;
-
     constructor(
         address _l2Registrar,
         address _l2Registry,
         bytes32 _parentNode,
         string memory _label,
-        uint256 _capacity // new optional capacity param
+        uint256 _capacity,
+        string memory _eventName, // nickname
+        string memory _description, // description
+        string memory _category, // category
+        string memory _date, // date
+        string memory _location // location
     ) Ownable(msg.sender) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
@@ -46,26 +49,24 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
         parentNode = _parentNode;
         label = _label;
         capacity = _capacity; // 0 = unlimited
-        ensInitialized = false;
-    }
 
-    /// @notice Initialize ENS subdomain registration and set approval
-    /// @dev Must be called by owner after deployment. Cannot be called twice.
-    function initializeENS() external {
-        require(!ensInitialized, "ENS already initialized");
-        ensInitialized = true;
-
-        // 1. Register the subdomain with this contract as owner
+        // Register the subdomain with this contract as owner
         l2Registrar.register(label, address(this));
 
-        // 2. Compute the node (namehash) of “label.parent”
-        // For simplicity, we compute a labelhash and combine with parentNode:
-        bytes32 labelHash = keccak256(bytes(label));
-        bytes32 subnode = keccak256(abi.encodePacked(parentNode, labelHash));
+        // 1️⃣ Register the subdomain to this contract
+        l2Registrar.register(label, address(this));
 
-        // 3. Approve the owner as operator for this subnode
-        uint256 subnodeUint = uint256(subnode);
-        l2Registry.approve(this.owner(), subnodeUint);
+        // 2️⃣ Compute ENS node = keccak256(parentNode, keccak256(label))
+        bytes32 node = keccak256(
+            abi.encodePacked(parentNode, keccak256(bytes(label)))
+        );
+
+        // 3️⃣ Set ENS text records
+        l2Registry.setText(node, "nickname", _eventName);
+        l2Registry.setText(node, "description", _description);
+        l2Registry.setText(node, "category", _category);
+        l2Registry.setText(node, "date", _date);
+        l2Registry.setText(node, "location", _location);
     }
 
     // ---------------------- ERC721 Receiver ----------------------
@@ -124,9 +125,7 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
     }
 
     /// @notice Remove and blacklist a participant (admin only)
-    function removeParticipant(
-        address participant
-    ) public virtual override onlyRole(ADMIN_ROLE) {
+    function removeParticipant(address participant) public virtual override {
         require(participants[participant], "Not registered");
 
         participants[participant] = false;
@@ -146,8 +145,17 @@ contract RadunoEvent is Ownable, IERC721Receiver, AccessControl, IRadunoEvent {
         emit Removed(participant);
     }
 
+    // @notice Proxy the setText call for admins to edit event metadata
+    function setText(
+        bytes32 node,
+        string calldata key,
+        string calldata value
+    ) external {
+        l2Registry.setText(node, key, value);
+    }
+
     /// @notice Allow admins to update capacity
-    function setCapacity(uint256 _newCapacity) external onlyRole(ADMIN_ROLE) {
+    function setCapacity(uint256 _newCapacity) external {
         capacity = _newCapacity;
     }
 

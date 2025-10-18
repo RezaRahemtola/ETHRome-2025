@@ -14,11 +14,17 @@ contract RadunoEventFactory {
     );
 
     function createEvent(
+        address _realOwner,
         address _l2Registrar,
         address _l2Registry,
         bytes32 _parentNode,
         string memory _label,
-        uint256 _capacity
+        uint256 _capacity,
+        string memory _eventName, // nickname
+        string memory _description, // description
+        string memory _category, // category
+        string memory _date, // date
+        string memory _location // location
     ) external returns (address) {
         // Deploy new event
         RadunoEvent ev = new RadunoEvent(
@@ -26,12 +32,17 @@ contract RadunoEventFactory {
             _l2Registry,
             _parentNode,
             _label,
-            _capacity
+            _capacity,
+            _eventName,
+            _description,
+            _category,
+            _date,
+            _location
         );
 
         // Store and emit
         allEvents.push(address(ev));
-        emit EventCreated(address(ev), msg.sender, _label);
+        emit EventCreated(address(ev), _realOwner, _label);
 
         return address(ev);
     }

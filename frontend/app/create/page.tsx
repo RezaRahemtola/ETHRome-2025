@@ -9,14 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowLeft } from "lucide-react";
-import { CONSTRUCTOR_ARGS, CONTRACT_ABI, CONTRACT_ADDRESS } from "@/lib/contract";
+import { CONSTRUCTOR_ARGS, CONTRACT_ABI, CONTRACT_ADDRESS } from "@/lib/contracts/factory";
 import { encodeFunctionData } from "viem";
 import type { TransactionError, TransactionResponseType } from "@coinbase/onchainkit/transaction";
 import { Transaction, TransactionButton } from "@coinbase/onchainkit/transaction";
+import { toast } from "sonner";
 
 export default function CreateEventPage() {
   const { isFrameReady, setFrameReady } = useMiniKit();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const router = useRouter();
   const [formData, setFormData] = useState({
     title: "",
@@ -30,6 +31,7 @@ export default function CreateEventPage() {
     ipfsHash: "",
     eventId: ""
   });
+
 
   // Initialize the miniapp
   useEffect(() => {
@@ -48,8 +50,12 @@ export default function CreateEventPage() {
   const handleSuccess = (response: TransactionResponseType) => {
     console.log("Event created successfully!", response);
 
-    // Redirect to events page after successful creation
-    setTimeout(() => router.push("/events"), 2000);
+    toast.success("Event created successfully!", {
+      description: "Your event has been published to the blockchain."
+    });
+
+    // Redirect to the event detail page
+    router.push(`/events/${formData.eventId}`);
   };
 
   const handleError = (error: TransactionError) => {
@@ -57,17 +63,32 @@ export default function CreateEventPage() {
   };
 
   // Encode the contract call for the Transaction component
-  const calls = [
+  // Prepare date string
+  const dateString = formData.date && formData.time
+    ? `${formData.date}T${formData.time}`
+    : "";
+
+  const calls = address && formData.title && formData.description && formData.location ? [
     {
       to: CONTRACT_ADDRESS as `0x${string}`,
       data: encodeFunctionData({
         abi: CONTRACT_ABI,
         functionName: "createEvent",
-        args: CONSTRUCTOR_ARGS
+        args: [
+          address,                                    // _realOwner
+          ...CONSTRUCTOR_ARGS,                        // _l2Registrar, _l2Registry, _parentNode
+          formData.eventId,                           // _label
+          BigInt(formData.maxAttendees || 0),         // _capacity
+          formData.title,                             // _eventName
+          formData.description,                       // _description
+          formData.category,                          // _category
+          dateString,                                 // _date
+          formData.location                           // _location
+        ]
       }),
       value: BigInt(0)
     }
-  ];
+  ] : [];
 
   // Generate URL-friendly slug from title
   const generateSlug = (text: string): string => {
