@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
-import { useAccount, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowLeft } from "lucide-react";
 import { CONSTRUCTOR_ARGS, CONTRACT_ABI, CONTRACT_ADDRESS } from "@/lib/contract";
-import { getAddress } from "viem";
+import { encodeFunctionData } from "viem";
+import type { TransactionError, TransactionResponseType } from "@coinbase/onchainkit/transaction";
+import { Transaction, TransactionButton } from "@coinbase/onchainkit/transaction";
 
 export default function CreateEventPage() {
-  const { isFrameReady, setFrameReady, context } = useMiniKit();
+  const { isFrameReady, setFrameReady } = useMiniKit();
   const { isConnected } = useAccount();
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -25,27 +27,8 @@ export default function CreateEventPage() {
     maxAttendees: "",
     category: "meetup",
     coverImage: null as File | null,
-    ipfsHash: ""
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [createdEventAddress, setCreatedEventAddress] = useState<string | null>(null);
-
-  // Contract write hook
-  const {
-    writeContract,
-    data: hash,
-    isPending: isCreating,
-    isError: isCreateError,
-    error: createError
-  } = useWriteContract();
-
-  // Wait for transaction to be confirmed
-  const {
-    isLoading: isConfirming,
-    isSuccess: isConfirmed,
-    data: receipt
-  } = useWaitForTransactionReceipt({
-    hash
+    ipfsHash: "",
+    eventId: ""
   });
 
   // Initialize the miniapp
@@ -62,82 +45,56 @@ export default function CreateEventPage() {
     }
   }, [isConnected, router]);
 
-  // Handle successful transaction and extract event address from logs
-  useEffect(() => {
-    const extractEventAddress = async () => {
-      if (isConfirmed && receipt) {
-        try {
-          console.log("Event created! Checking receipt for EventCreated event...");
-          console.log(receipt);
+  const handleSuccess = (response: TransactionResponseType) => {
+    console.log("Event created successfully!", response);
 
-          // The createEvent function returns an address and emits an EventCreated event
-          // We can extract the event address from the logs
-          if (receipt.logs && receipt.logs.length > 0) {
-            // Look for EventCreated event (first indexed parameter is the eventAddress)
-            const eventCreatedLog = receipt.logs.find(log =>
-              log.topics[0] === "0xa54c7891edaa21526f9ad14c69ae2fd966ac0969fcd9a990a4e006427afd382e"
-            );
+    // Redirect to events page after successful creation
+    setTimeout(() => router.push("/events"), 2000);
+  };
 
-            if (eventCreatedLog && eventCreatedLog.topics[1]) {
-              // The first indexed parameter (eventAddress) is in topics[1]
-              // Convert from bytes32 to address (remove padding)
-              const paddedAddress = eventCreatedLog.topics[1];
-              const addr = getAddress("0x" + paddedAddress.slice(-40));
-              console.log("Created event address:", addr);
-              setCreatedEventAddress(addr);
-              setIsSubmitting(false);
+  const handleError = (error: TransactionError) => {
+    console.error("Create event error:", error);
+  };
 
-              // Redirect to events page after successful creation
-              setTimeout(() => router.push("/events"), 2000);
-              return;
-            }
-          }
-
-          console.log("Event address not found in receipt logs");
-          setIsSubmitting(false);
-        } catch (error) {
-          console.log(`Error: ${error instanceof Error ? error.message : String(error)}`);
-          setIsSubmitting(false);
-        }
-      }
-    };
-
-    extractEventAddress();
-  }, [isConfirmed, receipt, router]);
-
-  // Handle errors
-  useEffect(() => {
-    if (isCreateError) {
-      setIsSubmitting(false);
-    }
-  }, [isCreateError]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    console.log("Creating event:", formData);
-    console.log("Creator FID:", context?.user?.fid);
-
-    try {
-      // Call the createEvent method on the smart contract
-      writeContract({
-        address: CONTRACT_ADDRESS as `0x${string}`,
+  // Encode the contract call for the Transaction component
+  const calls = [
+    {
+      to: CONTRACT_ADDRESS as `0x${string}`,
+      data: encodeFunctionData({
         abi: CONTRACT_ABI,
         functionName: "createEvent",
         args: CONSTRUCTOR_ARGS
-      });
-    } catch (error) {
-      console.error("Create event error:", error);
-      setIsSubmitting(false);
+      }),
+      value: BigInt(0)
     }
+  ];
+
+  // Generate URL-friendly slug from title
+  const generateSlug = (text: string): string => {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "") // Remove special characters
+      .replace(/[\s_]+/g, "-")  // Replace spaces and underscores with dashes
+      .replace(/^-+|-+$/g, "");  // Remove leading/trailing dashes
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+
+    // Auto-generate eventId from title, but allow manual override
+    if (name === "title") {
+      setFormData({
+        ...formData,
+        title: value,
+        eventId: generateSlug(value)
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,7 +140,7 @@ export default function CreateEventPage() {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="px-6 py-6 pb-nav space-y-8">
+      <form className="px-6 py-6 pb-nav space-y-8">
         {/* Event Title */}
         <div className="space-y-2">
           <label htmlFor="title" className="block text-sm font-semibold text-foreground">
@@ -347,6 +304,33 @@ export default function CreateEventPage() {
                 <p className="text-xs text-muted-foreground">Maximum number of attendees (optional)</p>
               </div>
 
+              {/* Event ID */}
+              <div className="space-y-2">
+                <label htmlFor="eventId" className="block text-sm font-semibold text-foreground">
+                  Event ID
+                </label>
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                  </div>
+                  <Input
+                    type="text"
+                    id="eventId"
+                    name="eventId"
+                    value={formData.eventId}
+                    onChange={handleChange}
+                    placeholder="id"
+                    className="h-12 pl-12 text-base font-mono"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ID auto-generated from title (can be customized)
+                </p>
+              </div>
+
               {/* Cover Image */}
               <div className="space-y-2">
                 <label htmlFor="coverImage" className="block text-sm font-semibold text-foreground">
@@ -395,83 +379,23 @@ export default function CreateEventPage() {
           </AccordionItem>
         </Accordion>
 
-        {/* Transaction Status */}
-        {hash && (
-          <div className="p-4 bg-muted/50 rounded-xl border border-border space-y-3">
-            <div>
-              <div className="text-xs font-semibold text-muted-foreground mb-2">Transaction Hash:</div>
-              <div className="text-xs font-mono break-all">{hash}</div>
-            </div>
-
-            {isConfirming && (
-              <div className="text-sm text-primary animate-pulse">
-                ⏳ Waiting for confirmation...
-              </div>
-            )}
-
-            {isConfirmed && createdEventAddress && (
-              <div className="space-y-3">
-                <div className="text-sm text-green-500 font-semibold">
-                  ✓ Event created successfully!
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-muted-foreground mb-2">Event Contract Address:</div>
-                  <div className="text-xs font-mono break-all bg-background/50 p-3 rounded-lg border border-primary/20">
-                    {createdEventAddress}
-                  </div>
-                  <a
-                    href={`https://basescan.org/address/${createdEventAddress}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 text-xs text-primary hover:underline inline-block"
-                  >
-                    View on Basescan →
-                  </a>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {isCreateError && createError && (
-          <div className="p-4 bg-destructive/10 rounded-xl border border-destructive/20">
-            <div className="text-sm text-destructive font-semibold mb-2">Transaction Failed</div>
-            <div className="text-xs text-destructive/80">{createError.message}</div>
-          </div>
-        )}
-
-        {/* Submit Button */}
+        {/* Transaction Component with Gas Sponsorship */}
         <div className="pt-6 space-y-3">
-          <Button
-            type="submit"
-            disabled={isSubmitting || isCreating || isConfirming}
-            size="lg"
-            className="w-full text-base font-bold h-16 rounded-2xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          <Transaction
+            calls={calls}
+            onSuccess={handleSuccess}
+            onError={handleError}
+            capabilities={{
+              paymasterService: {
+                url: process.env.NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT!
+              }
+            }}
           >
-            {isCreating ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
-                     viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Waiting for Approval...
-              </span>
-            ) : isConfirming ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none"
-                     viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Creating Event...
-              </span>
-            ) : (
-              "Create Event ✨"
-            )}
-          </Button>
+            <TransactionButton
+              className="w-full text-base font-bold h-16 rounded-2xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              text="Create Event ✨"
+            />
+          </Transaction>
         </div>
       </form>
 

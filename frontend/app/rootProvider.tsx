@@ -23,7 +23,8 @@ export function RootProvider({ children }: Readonly<{ children: ReactNode }>) {
           wallet: {
             display: "modal",
             preference: "all"
-          }
+          },
+          paymaster: process.env.NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT
         }}
         miniKit={{
           enabled: true,

@@ -22,6 +22,7 @@ vercel --prod                                    # Deploy to production
 vercel env add NEXT_PUBLIC_PROJECT_NAME production
 vercel env add NEXT_PUBLIC_ONCHAINKIT_API_KEY production
 vercel env add NEXT_PUBLIC_URL production
+vercel env add NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT production
 ```
 
 ## Environment Variables
@@ -30,6 +31,7 @@ Required variables in `.env.local`:
 - `NEXT_PUBLIC_PROJECT_NAME` - App name (default: "Raduno")
 - `NEXT_PUBLIC_ONCHAINKIT_API_KEY` - Coinbase Developer Platform API key
 - `NEXT_PUBLIC_URL` - Production URL (auto-detected in development)
+- `NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT` - Paymaster URL for gas sponsorship (get from Coinbase Developer Platform)
 
 ## Architecture Overview
 
@@ -61,6 +63,7 @@ The app uses **wallet connection** (not Farcaster-specific auth) for access cont
 - Chain: Base
 - MiniKit enabled with `autoConnect: true`
 - Wallet preference: "all" (supports any Web3 wallet)
+- Paymaster configured for gas sponsorship (only works with Smart Wallets)
 
 **`app/globals.css`**
 - Tailwind v4 CSS-based configuration
@@ -117,6 +120,47 @@ if (result?.cast) {
 }
 ```
 
+**Gas-Sponsored Transaction Pattern (OnchainKit):**
+```tsx
+import {
+  Transaction,
+  TransactionButton,
+  TransactionStatus,
+  TransactionStatusLabel,
+  TransactionStatusAction,
+} from "@coinbase/onchainkit/transaction";
+import { encodeFunctionData } from "viem";
+
+// Encode contract call
+const calls = [{
+  to: CONTRACT_ADDRESS as `0x${string}`,
+  data: encodeFunctionData({
+    abi: CONTRACT_ABI,
+    functionName: "createEvent",
+    args: CONSTRUCTOR_ARGS,
+  }),
+  value: BigInt(0),
+}];
+
+// Use Transaction component instead of wagmi hooks
+<Transaction
+  calls={calls}
+  onSuccess={handleSuccess}
+  onError={handleError}
+  capabilities={{
+    paymasterService: {
+      url: process.env.NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT,
+    },
+  }}
+>
+  <TransactionButton text="Create Event" />
+  <TransactionStatus>
+    <TransactionStatusLabel />
+    <TransactionStatusAction />
+  </TransactionStatus>
+</Transaction>
+```
+
 ### Important Implementation Details
 
 1. **Tailwind v4 Differences:**
@@ -149,6 +193,13 @@ if (result?.cast) {
    - `getUrlHost()` helper handles Vercel environments
    - Returns user FID but not used for route protection
 
+6. **Gas Sponsorship (Paymaster):**
+   - Enabled globally via `paymaster` config in `OnchainKitProvider`
+   - Use OnchainKit's `Transaction` component (NOT wagmi hooks) for sponsored transactions
+   - Only works with **Coinbase Smart Wallet** (not regular EOA wallets)
+   - Get paymaster endpoint from [Coinbase Developer Platform](https://portal.cdp.coinbase.com/products/paymaster)
+   - See `/app/create/page.tsx` for implementation example
+
 ## Farcaster MiniApp Publishing
 
 To update the manifest for Base app publishing:
@@ -158,15 +209,17 @@ To update the manifest for Base app publishing:
 3. Test at [base.dev/preview](https://base.dev/preview)
 4. Deploy and post URL in Base app to publish
 
-## Smart Contract Integration (TODO)
+## Smart Contract Integration
 
-The app is designed for smart contract integration but currently uses mock data:
+The app integrates with smart contracts on Base:
 
-- Event creation: `handleSubmit` in `/app/create/page.tsx`
-- Event registration: `handleRegister` in `/app/events/[id]/page.tsx`
-- Event data: Mock arrays in each page component
+- **Event creation**: Uses OnchainKit `Transaction` component in `/app/create/page.tsx` with gas sponsorship
+- **Event registration**: `handleRegister` in `/app/events/[id]/page.tsx` (TODO: migrate to Transaction component)
+- **Event data**: Mock arrays in each page component (TODO: read from contracts)
 
-When integrating contracts:
+When integrating new contract features:
 - Use `address` from `useAccount()` for user identification
-- Use `viem` and `wagmi` hooks (already installed)
+- Use OnchainKit's `Transaction` component for gas-sponsored transactions (NOT wagmi hooks)
+- Use `viem` types for type safety
 - Base chain is pre-configured in `RootProvider`
+- Gas sponsorship only works with Coinbase Smart Wallet
