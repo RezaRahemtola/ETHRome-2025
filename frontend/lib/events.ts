@@ -131,18 +131,35 @@ async function fetchEventContractData(address: `0x${string}`) {
  */
 function parseEventDate(dateStr: string | null): { date: string; time: string } {
   if (!dateStr) {
-    return { date: "2025-11-15", time: "18:00" };
+    const now = new Date();
+    return {
+      date: now.toISOString().split("T")[0],
+      time: "18:00"
+    };
   }
 
   try {
     const dateObj = new Date(dateStr);
+    // Check if the date is valid
+    if (isNaN(dateObj.getTime())) {
+      console.warn(`Invalid date string: "${dateStr}", using current date as fallback`);
+      const now = new Date();
+      return {
+        date: now.toISOString().split("T")[0],
+        time: "18:00"
+      };
+    }
     return {
       date: dateObj.toISOString().split("T")[0],
       time: dateObj.toTimeString().slice(0, 5)
     };
   } catch (e) {
-    console.error("Error parsing date:", e);
-    return { date: "2025-11-15", time: "18:00" };
+    console.error("Error parsing date:", e, "Input:", dateStr);
+    const now = new Date();
+    return {
+      date: now.toISOString().split("T")[0],
+      time: "18:00"
+    };
   }
 }
 

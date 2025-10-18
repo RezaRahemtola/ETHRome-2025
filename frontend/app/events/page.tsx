@@ -67,22 +67,24 @@ export default function EventsPage() {
     }
 
     const now = new Date();
-    now.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
 
     let filtered = events;
 
     if (filter === "upcoming") {
       filtered = events.filter(event => {
-        // Parse the date from the event
-        const eventDate = new Date(event.date);
-        eventDate.setHours(0, 0, 0, 0);
-        return eventDate >= now;
+        // Combine date and time for accurate comparison
+        const [year, month, day] = event.date.split('-').map(Number);
+        const [hours, minutes] = event.time.split(':').map(Number);
+        const eventDateTime = new Date(year, month - 1, day, hours, minutes);
+        return eventDateTime >= now;
       });
     } else if (filter === "past") {
       filtered = events.filter(event => {
-        const eventDate = new Date(event.date);
-        eventDate.setHours(0, 0, 0, 0);
-        return eventDate < now;
+        // Combine date and time for accurate comparison
+        const [year, month, day] = event.date.split('-').map(Number);
+        const [hours, minutes] = event.time.split(':').map(Number);
+        const eventDateTime = new Date(year, month - 1, day, hours, minutes);
+        return eventDateTime < now;
       });
     }
 
