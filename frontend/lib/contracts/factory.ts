@@ -66,6 +66,11 @@ export const CONTRACT_ABI = [
         "internalType": "string",
         "name": "_location",
         "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_websiteHash",
+        "type": "string"
       }
     ],
     "name": "createEvent",
@@ -139,7 +144,7 @@ export const CONTRACT_ABI = [
 ] as const;
 
 // Replace with your deployed contract address
-export const CONTRACT_ADDRESS = "0xFb7B5cadb3EB1dA033Ba1872fa42eB2900b26491";
+export const CONTRACT_ADDRESS = "0x46479210569FC32A66B5b3740011167c9D18cdc5";
 
 // If your contract constructor requires arguments, define their types here
 // Example: export const CONSTRUCTOR_ARGS = ["Initial Value", 100] as const;

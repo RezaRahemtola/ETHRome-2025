@@ -14,6 +14,7 @@ import { encodeFunctionData } from "viem";
 import type { TransactionError, TransactionResponseType } from "@coinbase/onchainkit/transaction";
 import { Transaction, TransactionButton } from "@coinbase/onchainkit/transaction";
 import { toast } from "sonner";
+import * as contentHash from "@ensdomains/content-hash";
 
 export default function CreateEventPage() {
   const { isFrameReady, setFrameReady } = useMiniKit();
@@ -28,6 +29,7 @@ export default function CreateEventPage() {
     maxAttendees: "",
     category: "meetup",
     coverImage: null as File | null,
+    coverImageHash: "",
     ipfsHash: "",
     eventId: ""
   });
@@ -71,6 +73,26 @@ export default function CreateEventPage() {
     ? `${formData.date}T${formData.time}`
     : "";
 
+  // Default capacity to 0 if not specified (unlimited)
+  const capacity = formData.maxAttendees ? BigInt(formData.maxAttendees) : BigInt(0);
+
+  // Encode IPFS hash to ENS contenthash format
+  let encodedWebsiteHash = "";
+  console.log("Form data IPFS hash:", formData.ipfsHash);
+  if (formData.ipfsHash) {
+    try {
+      console.log("Encoding IPFS hash:", formData.ipfsHash);
+      // Use contentHash library to properly encode IPFS hash for ENS
+      // The "ipfs" codec produces the correct format with namespace prefix (0xe3...)
+      const encoded = contentHash.encode("ipfs", formData.ipfsHash);
+      encodedWebsiteHash = "0x" + encoded; // Add 0x prefix for hex string
+      console.log("Encoded website hash:", encodedWebsiteHash);
+    } catch (error) {
+      console.error("Error encoding IPFS hash:", error);
+      toast.error("Invalid IPFS hash format");
+    }
+  }
+
   const calls = address && formData.title && formData.description && formData.location ? [
     {
       to: CONTRACT_ADDRESS as `0x${string}`,
@@ -81,12 +103,13 @@ export default function CreateEventPage() {
           address,                                    // _realOwner
           ...CONSTRUCTOR_ARGS,                        // _l2Registrar, _l2Registry, _parentNode
           formData.eventId,                           // _label
-          BigInt(formData.maxAttendees || 0),         // _capacity
+          capacity,                                   // _capacity
           formData.title,                             // _eventName
           formData.description,                       // _description
           formData.category,                          // _category
           dateString,                                 // _date
-          formData.location                           // _location
+          formData.location,                          // _location
+          encodedWebsiteHash        // _websiteHash (ENS encoded)
         ]
       }),
       value: BigInt(0)

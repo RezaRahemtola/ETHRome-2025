@@ -3,10 +3,14 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
+const WELCOME_SEEN_KEY = "raduno_welcome_seen";
+
 export default function WelcomePage() {
   const router = useRouter();
 
   const handleGetStarted = () => {
+    // Mark that user has seen the welcome page
+    localStorage.setItem(WELCOME_SEEN_KEY, "true");
     router.push("/events");
   };
 

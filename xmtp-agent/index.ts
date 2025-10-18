@@ -10,6 +10,7 @@ import OpenAI from "openai";
 import { createPublicClient, http, type Address } from "viem";
 import { base } from "viem/chains";
 
+import { ContentTypeMarkdown, MarkdownCodec } from "@xmtp/content-type-markdown";
 import { loadEnvFile } from "./utils";
 
 loadEnvFile();
@@ -757,7 +758,7 @@ async function handleEventRecommendation(userMessage: string, senderAddress: str
     const eventsContext = formatEventsForAI(events);
 
     // Create AI prompt
-    const systemPrompt = `You are a helpful event recommendation assistant for Raduno, an event management platform. Your role is to help users find the best events based on their interests and needs.
+    const systemPrompt = `You are a helpful event recommendation assistant for Raduno, a decentralized event management platform on the Base app. Your role is to help users find the best events based on their interests and needs.
 
 You have access to the following events:
 
@@ -817,6 +818,7 @@ const signer = createSigner(user);
 const agent = await Agent.create(signer, {
   env: xmtpEnv,
   dbPath: process.env.XMTP_DB_PATH || null,
+  codecs: [new MarkdownCodec()]
 });
 
 // ============================================================================
@@ -891,7 +893,7 @@ agent.on("text", async (ctx) => {
     const response = await handleEventRecommendation(messageText, senderAddress);
 
     // Send the response
-    await ctx.sendText(response);
+    await ctx.conversation.send(response, ContentTypeMarkdown);
     console.log(`✅ Sent response to ${senderAddress.slice(0, 10)}...`);
 
   } catch (error) {

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@coinbase/onchainkit": "latest",
+    "@ensdomains/content-hash": "^3.0.0",
     "@farcaster/miniapp-sdk": "^0.1.8",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-dialog": "^1.1.15",
