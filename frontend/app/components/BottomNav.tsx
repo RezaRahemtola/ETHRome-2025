@@ -46,7 +46,7 @@ export default function BottomNav() {
               >
                 <button
                   className={`
-                    relative flex flex-col items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl transition-all duration-200 min-w-[60px]
+                    cursor-pointer relative flex flex-col items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl transition-all duration-200 min-w-[60px]
                     ${isActive
                     ? "bg-purple-100"
                     : "text-muted-foreground hover:text-foreground active:scale-95"
