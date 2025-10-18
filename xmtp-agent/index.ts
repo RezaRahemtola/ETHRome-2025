@@ -6,6 +6,7 @@ import { getTestUrl } from "@xmtp/agent-sdk/debug";
 import { createSigner, createUser } from "@xmtp/agent-sdk/user";
 import type { Group } from "@xmtp/node-sdk";
 import Database from "better-sqlite3";
+import OpenAI from "openai";
 import { createPublicClient, http, type Address } from "viem";
 import { base } from "viem/chains";
 
@@ -25,6 +26,8 @@ interface GroupConfig {
   address: string;
   /** Name of the group */
   name: string;
+  /** Label for URL routing */
+  label: string;
   /** Description of the group */
   description?: string;
   /** List of member addresses that should be in this group */
@@ -209,6 +212,18 @@ const publicClient = createPublicClient({
 });
 
 // ============================================================================
+// OpenAI Client
+// ============================================================================
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+if (!OPENAI_API_KEY) {
+  console.warn("⚠️  OPENAI_API_KEY not set - DM event recommendations will be disabled");
+}
+
+const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
+
+// ============================================================================
 // Blockchain Query Functions
 // ============================================================================
 
@@ -333,6 +348,7 @@ async function fetchGroupConfigurations(): Promise<GroupConfig[]> {
         configs.push({
           address: eventAddress.toLowerCase(),
           name: eventName,
+          label: label,
           description: eventDescription,
           memberAddresses,
         });
@@ -689,6 +705,99 @@ async function processGroupConfigurations(): Promise<void> {
 }
 
 // ============================================================================
+// AI-Powered Event Recommendation
+// ============================================================================
+
+/**
+ * Format events data for AI context
+ *
+ * @param events - Array of event configurations
+ * @returns Formatted string with event details for AI
+ */
+function formatEventsForAI(events: GroupConfig[]): string {
+  if (events.length === 0) {
+    return "No events are currently available.";
+  }
+
+  return events.map((event, idx) => {
+    return `${idx + 1}. ${event.name}
+   Label: ${event.label}
+   Description: ${event.description || "No description available"}
+   Number of participants: ${event.memberAddresses.length}`;
+  }).join("\n\n");
+}
+
+/**
+ * Handle incoming DM with AI-powered event recommendations
+ *
+ * @param userMessage - The user's message
+ * @param senderAddress - The sender's Ethereum address
+ * @returns Response message with event recommendations
+ */
+async function handleEventRecommendation(userMessage: string, senderAddress: string): Promise<string> {
+  try {
+    console.log(`\n🤖 Processing DM from ${senderAddress.slice(0, 10)}...`);
+    console.log(`   Message: "${userMessage}"`);
+
+    // Check if OpenAI is configured
+    if (!openai) {
+      return "Sorry, the AI event recommendation service is currently unavailable. Please check back later or contact the administrator.";
+    }
+
+    // Fetch all available events
+    const events = await fetchGroupConfigurations();
+
+    if (events.length === 0) {
+      return "I'm sorry, but there are currently no events available. Please check back later!";
+    }
+
+    console.log(`   Found ${events.length} events to recommend from`);
+
+    // Format events for AI
+    const eventsContext = formatEventsForAI(events);
+
+    // Create AI prompt
+    const systemPrompt = `You are a helpful event recommendation assistant for Raduno, an event management platform. Your role is to help users find the best events based on their interests and needs.
+
+You have access to the following events:
+
+${eventsContext}
+
+When recommending events:
+1. Understand what the user is looking for
+2. Match their interests with available events
+3. Recommend 1-3 most suitable events with their names
+4. Be friendly and conversational
+5. For each recommended event, include the registration link using the event's label: https://raduno.reza.dev/events/<label>
+6. Format it nicely, like: "**Event Name** - Description here. [Register here](https://raduno.reza.dev/events/label)"
+
+Important: Use the event's Label field (not the name) in the URL. The name is for display only.`;
+
+    // Call OpenAI API
+    console.log(`   Calling OpenAI API...`);
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage }
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    const aiResponse = completion.choices[0]?.message?.content || "I'm sorry, I couldn't process your request. Please try again.";
+
+    console.log(`   AI Response generated successfully`);
+
+    return aiResponse;
+
+  } catch (error) {
+    console.error("Error in handleEventRecommendation:", error);
+    return "I apologize, but I encountered an error while processing your request. Please try again later.";
+  }
+}
+
+// ============================================================================
 // Agent Setup
 // ============================================================================
 
@@ -750,6 +859,49 @@ agent.on("start", async () => {
     `\n⏰ Periodic sync scheduled every ${SYNC_INTERVAL / 1000} seconds`
   );
   console.log("=".repeat(60) + "\n");
+});
+
+// ============================================================================
+// DM Message Handler
+// ============================================================================
+
+agent.on("text", async (ctx) => {
+  try {
+    // Check if this is a DM (not a group message)
+    if (!ctx.isDm()) {
+      // This is a group message, ignore it
+      console.log(`📝 Received group message (ignoring): "${ctx.message.content}"`);
+      return;
+    }
+
+    // Get sender's address
+    const senderAddress = await ctx.getSenderAddress();
+
+    if (!senderAddress) {
+      console.log(`⚠️  Could not identify sender in DM`);
+      return;
+    }
+
+    const messageText = ctx.message.content;
+
+    console.log(`💬 Received DM from ${senderAddress.slice(0, 10)}...`);
+    console.log(`   Message: "${messageText}"`);
+
+    // Handle the message with AI-powered recommendations
+    const response = await handleEventRecommendation(messageText, senderAddress);
+
+    // Send the response
+    await ctx.sendText(response);
+    console.log(`✅ Sent response to ${senderAddress.slice(0, 10)}...`);
+
+  } catch (error) {
+    console.error("Error handling text message:", error);
+    try {
+      await ctx.sendText("Sorry, I encountered an error processing your message. Please try again.");
+    } catch (replyError) {
+      console.error("Error sending error reply:", replyError);
+    }
+  }
 });
 
 void agent.start();
