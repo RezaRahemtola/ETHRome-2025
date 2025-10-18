@@ -55,13 +55,6 @@ export default function EventDetailPage() {
     }
   }, [setFrameReady, isFrameReady]);
 
-  // Redirect if wallet not connected
-  useEffect(() => {
-    if (!isConnected) {
-      router.push("/");
-    }
-  }, [isConnected, router]);
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {

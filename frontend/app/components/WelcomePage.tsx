@@ -1,16 +1,12 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 
 export default function WelcomePage() {
   const router = useRouter();
-  const { isConnected } = useAccount();
 
   const handleGetStarted = () => {
-    if (isConnected) {
-      router.push("/events");
-    }
+    router.push("/events");
   };
 
   const benefits = [
@@ -94,20 +90,10 @@ export default function WelcomePage() {
             <Button
               size="lg"
               onClick={handleGetStarted}
-              disabled={!isConnected}
-              className={`w-full text-base font-bold h-12 rounded-xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white ${
-                isConnected
-                  ? "hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02]"
-                  : "opacity-50 cursor-not-allowed"
-              }`}
+              className="w-full text-base font-bold h-12 rounded-xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02]"
             >
-              {isConnected ? "Get Started ✨" : "Connect Wallet"}
+              Get Started ✨
             </Button>
-            {!isConnected && (
-              <p className="text-xs text-center text-muted-foreground mt-2">
-                Connect your wallet to start exploring events
-              </p>
-            )}
           </div>
         </div>
       </div>
