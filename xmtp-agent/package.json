@@ -1,0 +1,17 @@
+{
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx --watch index.ts",
+    "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "@xmtp/agent-sdk": "^1.1.7",
+    "better-sqlite3": "^12.4.1",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "tsx": "^4.20.6"
+  }
+}
