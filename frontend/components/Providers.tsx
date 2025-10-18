@@ -11,8 +11,8 @@ const ErudaProvider = dynamic(
 export function Providers({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ErudaProvider>
-      {children}
       <Toaster />
+      {children}
     </ErudaProvider>
   );
 }

@@ -2,18 +2,20 @@
 import { useEffect, useState } from "react";
 import { useComposeCast, useMiniKit } from "@coinbase/onchainkit/minikit";
 import { useAccount, useReadContract } from "wagmi";
-import { useRouter, useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ArrowLeft, Share2 } from "lucide-react";
-import { fetchEventByAddress, type EventData } from "@/lib/events";
+import { type EventData, fetchEventByAddress } from "@/lib/events";
+import { toast } from "sonner";
 import { CONTRACT_ABI as FACTORY_ABI, CONTRACT_ADDRESS as FACTORY_ADDRESS } from "@/lib/contracts/factory";
 import { CONTRACT_ABI as EVENT_ABI } from "@/lib/contracts/event";
 import { base } from "wagmi/chains";
-import { createPublicClient, http, encodeFunctionData } from "viem";
+import { createPublicClient, encodeFunctionData, http } from "viem";
 import type { TransactionError, TransactionResponseType } from "@coinbase/onchainkit/transaction";
 import { Transaction, TransactionButton } from "@coinbase/onchainkit/transaction";
 
-interface Event extends Omit<EventData, 'description'> {
+interface Event extends Omit<EventData, "description"> {
   description: string;
   isRegistered: boolean;
   isHost: boolean;
@@ -30,6 +32,7 @@ export default function EventDetailPage() {
   const [eventContractAddress, setEventContractAddress] = useState<`0x${string}` | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const { composeCastAsync } = useComposeCast();
 
@@ -52,7 +55,7 @@ export default function EventDetailPage() {
       try {
         const publicClient = createPublicClient({
           chain: base,
-          transport: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org')
+          transport: http(process.env.NEXT_PUBLIC_RPC_URL || "https://mainnet.base.org")
         });
 
         // Find the event contract with the matching label
@@ -61,7 +64,7 @@ export default function EventDetailPage() {
           const label = await publicClient.readContract({
             address: addr,
             abi: EVENT_ABI,
-            functionName: 'label'
+            functionName: "label"
           }) as string;
 
           if (label === eventId) {
@@ -71,7 +74,7 @@ export default function EventDetailPage() {
         }
 
         if (!eventAddress) {
-          console.error('Event not found:', eventId);
+          console.error("Event not found:", eventId);
           setIsLoading(false);
           return;
         }
@@ -88,20 +91,20 @@ export default function EventDetailPage() {
                 publicClient.readContract({
                   address: eventAddress,
                   abi: EVENT_ABI,
-                  functionName: 'isParticipant',
+                  functionName: "isParticipant",
                   args: [address]
                 }) as Promise<boolean>,
                 publicClient.readContract({
                   address: eventAddress,
                   abi: EVENT_ABI,
-                  functionName: 'owner'
+                  functionName: "owner"
                 }) as Promise<`0x${string}`>
               ]);
 
               isRegistered = participantStatus;
               isHost = contractOwner.toLowerCase() === address.toLowerCase();
             } catch (error) {
-              console.error('Error checking registration/ownership status:', error);
+              console.error("Error checking registration/ownership status:", error);
             }
           }
 
@@ -114,7 +117,7 @@ export default function EventDetailPage() {
           });
         }
       } catch (error) {
-        console.error('Error loading event:', error);
+        console.error("Error loading event:", error);
       } finally {
         setIsLoading(false);
       }
@@ -130,6 +133,20 @@ export default function EventDetailPage() {
     }
   }, [setFrameReady, isFrameReady]);
 
+  // Reset modal state when component unmounts or registration status changes
+  useEffect(() => {
+    return () => {
+      setShowSuccessModal(false);
+    };
+  }, []);
+
+  // Close modal if user navigates or registration status changes unexpectedly
+  useEffect(() => {
+    if (event && !event.isRegistered && showSuccessModal) {
+      setShowSuccessModal(false);
+    }
+  }, [event, showSuccessModal]);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -143,25 +160,31 @@ export default function EventDetailPage() {
   const handleRegisterSuccess = async (response: TransactionResponseType) => {
     console.log("Registration successful:", response);
 
+    // Guard: Only proceed if currently not registered
+    if (event?.isRegistered) {
+      console.warn("Register handler called but already registered, ignoring");
+      return;
+    }
+
     // Reload event data to get updated registration status
     if (eventContractAddress && address) {
       try {
         const publicClient = createPublicClient({
           chain: base,
-          transport: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org')
+          transport: http(process.env.NEXT_PUBLIC_RPC_URL || "https://mainnet.base.org")
         });
 
         const [isRegistered, participantCount] = await Promise.all([
           publicClient.readContract({
             address: eventContractAddress,
             abi: EVENT_ABI,
-            functionName: 'isParticipant',
+            functionName: "isParticipant",
             args: [address]
           }) as Promise<boolean>,
           publicClient.readContract({
             address: eventContractAddress,
             abi: EVENT_ABI,
-            functionName: 'getParticipantCount'
+            functionName: "getParticipantCount"
           }) as Promise<bigint>
         ]);
 
@@ -171,64 +194,55 @@ export default function EventDetailPage() {
           attendees: Number(participantCount)
         } : null);
 
-        // Compose a cast to share the registration
-        if (event) {
-          const castText = `Just registered for ${event.title}! 🎉\n\n${event.description.slice(0, 100)}...\n\n📅 ${formatDate(event.date)} at ${event.time}\n📍 ${event.location}\n\nJoin us on Raduno!`;
-          const eventUrl = `${process.env.NEXT_PUBLIC_URL || "https://raduno.vercel.app"}/events/${eventId}`;
-
-          try {
-            const result = await composeCastAsync({
-              text: castText,
-              embeds: [eventUrl]
-            });
-
-            if (result?.cast) {
-              console.log("Cast created successfully:", result.cast.hash);
-            }
-          } catch (error) {
-            console.error("Error composing cast:", error);
-          }
-        }
+        // Show success modal instead of auto-casting
+        setShowSuccessModal(true);
       } catch (error) {
         console.error("Error refreshing event data:", error);
       }
     }
   };
 
+  const handleShareOnFeed = async () => {
+    if (!event) return;
+
+    setIsSharing(true);
+    setShowSuccessModal(false);
+
+    try {
+      const castText = `Just registered for ${event.title}! 🎉\n\n${event.description.slice(0, 100)}...\n\n📅 ${formatDate(event.date)} at ${event.time}\n📍 ${event.location}\n\nJoin us on Raduno!`;
+      const eventUrl = `${process.env.NEXT_PUBLIC_URL || "https://raduno.vercel.app"}/events/${eventId}`;
+
+      const result = await composeCastAsync({
+        text: castText,
+        embeds: [eventUrl]
+      });
+
+      if (result?.cast) {
+        console.log("Cast created successfully:", result.cast.hash);
+      }
+    } catch (error) {
+      console.error("Error composing cast:", error);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   const handleUnregisterSuccess = async (response: TransactionResponseType) => {
     console.log("Unregistration successful:", response);
 
-    // Reload event data to get updated registration status
-    if (eventContractAddress && address) {
-      try {
-        const publicClient = createPublicClient({
-          chain: base,
-          transport: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org')
-        });
-
-        const [isRegistered, participantCount] = await Promise.all([
-          publicClient.readContract({
-            address: eventContractAddress,
-            abi: EVENT_ABI,
-            functionName: 'isParticipant',
-            args: [address]
-          }) as Promise<boolean>,
-          publicClient.readContract({
-            address: eventContractAddress,
-            abi: EVENT_ABI,
-            functionName: 'getParticipantCount'
-          }) as Promise<bigint>
-        ]);
-
-        setEvent(prev => prev ? {
-          ...prev,
-          isRegistered,
-          attendees: Number(participantCount)
-        } : null);
-      } catch (error) {
-        console.error("Error refreshing event data:", error);
-      }
+    // Guard: Only proceed if currently registered
+    if (!event?.isRegistered) {
+      console.warn("Unregister handler called but not registered, ignoring");
+      return;
     }
+
+    // Show success toast and redirect
+    toast.success("Successfully unregistered", {
+      description: "You have been removed from this event."
+    });
+
+    // Redirect to events page
+    router.push("/events");
   };
 
   const handleError = (error: TransactionError) => {
@@ -370,8 +384,8 @@ export default function EventDetailPage() {
                 ✅
               </div>
               <div>
-                <div className="font-bold text-white text-lg">You&#39;re registered!</div>
-                <div className="text-sm text-white/80">We&#39;ll see you there</div>
+                <div className="font-bold text-lg">You&#39;re registered!</div>
+                <div className="text-sm">We&#39;ll see you there</div>
               </div>
             </div>
           </div>
@@ -466,67 +480,119 @@ export default function EventDetailPage() {
         </div>
 
         {/* Action Button */}
-        <div className="pt-2 pb-8">
+        <div className="pt-2 pb-8 space-y-4">
           {eventContractAddress && (
-            event.isHost ? (
-              <div className="glass-card rounded-2xl p-5 text-center">
-                <div className="text-4xl mb-3">🎉</div>
-                <p className="text-lg font-bold mb-1">You&#39;re hosting this event!</p>
-                <p className="text-sm text-muted-foreground">
-                  Manage your event and see who&#39;s registered
-                </p>
-              </div>
-            ) : event.isRegistered ? (
-              <Transaction
-                calls={[{
-                  to: eventContractAddress,
-                  data: encodeFunctionData({
-                    abi: EVENT_ABI,
-                    functionName: 'unregister'
-                  }),
-                  value: BigInt(0)
-                }]}
-                onSuccess={handleUnregisterSuccess}
-                onError={handleError}
-                capabilities={{
-                  paymasterService: {
-                    url: process.env.NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT!
-                  }
-                }}
-              >
-                <TransactionButton
-                  className="w-full text-base font-bold h-16 rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  text="Unregister from Event"
-                />
-              </Transaction>
-            ) : (
-              <Transaction
-                calls={[{
-                  to: eventContractAddress,
-                  data: encodeFunctionData({
-                    abi: EVENT_ABI,
-                    functionName: 'register'
-                  }),
-                  value: BigInt(0)
-                }]}
-                onSuccess={handleRegisterSuccess}
-                onError={handleError}
-                capabilities={{
-                  paymasterService: {
-                    url: process.env.NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT!
-                  }
-                }}
-              >
-                <TransactionButton
-                  className="w-full text-base font-bold h-12 rounded-xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  text={isFull ? "Event is full" : "Register for Event ✨"}
-                  disabled={isFull}
-                />
-              </Transaction>
-            )
+            <>
+              {event.isHost && (
+                <div className="glass-card rounded-2xl p-5 text-center">
+                  <div className="text-4xl mb-3">🎉</div>
+                  <p className="text-lg font-bold mb-1">You&#39;re hosting this event!</p>
+                  <p className="text-sm text-muted-foreground">
+                    Manage your event and see who&#39;s registered
+                  </p>
+                </div>
+              )}
+
+              {(!event.isHost || process.env.NEXT_PUBLIC_APP_ENV === "dev") && (
+                event.isRegistered ? (
+                  <Transaction
+                    key="unregister-transaction"
+                    calls={[{
+                      to: eventContractAddress,
+                      data: encodeFunctionData({
+                        abi: EVENT_ABI,
+                        functionName: "unregister"
+                      }),
+                      value: BigInt(0)
+                    }]}
+                    onSuccess={handleUnregisterSuccess}
+                    onError={handleError}
+                    capabilities={{
+                      paymasterService: {
+                        url: process.env.NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT!
+                      }
+                    }}
+                  >
+                    <TransactionButton
+                      className="w-full text-base font-bold h-16 rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      text="Unregister from Event"
+                    />
+                  </Transaction>
+                ) : (
+                  <Transaction
+                    key="register-transaction"
+                    calls={[{
+                      to: eventContractAddress,
+                      data: encodeFunctionData({
+                        abi: EVENT_ABI,
+                        functionName: "register"
+                      }),
+                      value: BigInt(0)
+                    }]}
+                    onSuccess={handleRegisterSuccess}
+                    onError={handleError}
+                    capabilities={{
+                      paymasterService: {
+                        url: process.env.NEXT_PUBLIC_PAYMASTER_AND_BUNDLER_ENDPOINT!
+                      }
+                    }}
+                  >
+                    <TransactionButton
+                      className="w-full text-base font-bold h-12 rounded-xl gradient-primary-secondary border-0 shadow-xl shadow-primary/30 transition-all duration-300 text-white hover:shadow-2xl hover:shadow-primary/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      text={isFull ? "Event is full" : "Register for Event ✨"}
+                      disabled={isFull}
+                    />
+                  </Transaction>
+                )
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {/* Success Modal */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent
+          className="sm:max-w-[425px] max-w-[calc(100vw-2rem)] rounded-3xl p-0 gap-0 border-0 shadow-2xl overflow-hidden gradient-primary-secondary">
+          {/* Gradient header background */}
+          <div className="relative p-8 pb-6">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+            <div className="relative text-center">
+              <div className="mx-auto mb-4 text-6xl">🎉</div>
+              <DialogTitle className="text-center text-3xl font-bold text-white mb-2">
+                You&apos;re Registered!
+              </DialogTitle>
+              <DialogDescription className="text-center text-base text-white/90">
+                We&apos;re excited to see you at
+              </DialogDescription>
+              <div className="text-center text-lg font-bold text-white mt-1">
+                {event?.title}
+              </div>
+            </div>
+          </div>
+
+          {/* Buttons section */}
+          <div className="p-6 space-y-3">
+            <Button
+              onClick={handleShareOnFeed}
+              disabled={isSharing}
+              className="w-full h-14 text-base font-bold bg-white text-primary hover:bg-white/90 border-0 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all rounded-xl"
+            >
+              {isSharing ? "Sharing..." : "Share on Feed 📢"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSuccessModal(false);
+                router.push("/events");
+              }}
+              className="w-full h-14 text-base font-semibold border-2 border-white/30 text-white hover:bg-white/10 rounded-xl transition-all"
+            >
+              Browse Other Events
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
