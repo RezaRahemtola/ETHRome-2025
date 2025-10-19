@@ -951,7 +951,7 @@ agent.on("start", async () => {
 
   // Set up periodic sync (every 1 minutes = 60000ms)
   // Adjust this interval based on your needs
-  const SYNC_INTERVAL = 60 * 1000; // 1 minute
+  const SYNC_INTERVAL = 30 * 1000; // 1 minute
 
   setInterval(async () => {
     console.log("\n⏰ Periodic sync triggered");
