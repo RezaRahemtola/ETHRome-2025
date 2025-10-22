@@ -1,0 +1,19 @@
+services:
+  raduno-xmtp-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: raduno-xmtp-agent
+    restart: always
+
+    env_file:
+      - .env
+
+    # Override database paths for Docker container
+    environment:
+      - XMTP_DB_PATH=/app/data/agent-db
+      - GROUP_DB_PATH=/app/data/group-mappings.db
+
+    volumes:
+      # Mount the current directory's database files
+      - ./data:/app/data
