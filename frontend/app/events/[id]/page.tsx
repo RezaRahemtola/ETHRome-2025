@@ -14,6 +14,7 @@ import { base } from "wagmi/chains";
 import { createPublicClient, encodeFunctionData, http } from "viem";
 import type { TransactionError, TransactionResponseType } from "@coinbase/onchainkit/transaction";
 import { Transaction, TransactionButton } from "@coinbase/onchainkit/transaction";
+import { getName } from "@coinbase/onchainkit/identity";
 
 interface Event extends Omit<EventData, "description"> {
   description: string;
@@ -33,6 +34,7 @@ export default function EventDetailPage() {
   const [isSharing, setIsSharing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [resolvedHostName, setResolvedHostName] = useState<string | null>(null);
 
   const { composeCastAsync } = useComposeCast();
 
@@ -132,6 +134,31 @@ export default function EventDetailPage() {
       setFrameReady();
     }
   }, [setFrameReady, isFrameReady]);
+
+  // Resolve host's basename
+  useEffect(() => {
+    const resolveHostName = async () => {
+      if (!event?.host) return;
+
+      // Check if host is a valid address (starts with 0x and is 42 characters)
+      const isAddress = event.host.startsWith("0x") && event.host.length === 42;
+
+      if (isAddress) {
+        try {
+          const basename = await getName({ address: event.host as `0x${string}`, chain: base });
+          setResolvedHostName(basename || `${event.host.slice(0, 6)}...${event.host.slice(-4)}`);
+        } catch (error) {
+          console.error("Error resolving basename:", error);
+          setResolvedHostName(`${event.host.slice(0, 6)}...${event.host.slice(-4)}`);
+        }
+      } else {
+        // Already a basename or custom name
+        setResolvedHostName(event.host);
+      }
+    };
+
+    resolveHostName();
+  }, [event?.host]);
 
   // Reset modal state when component unmounts or registration status changes
   useEffect(() => {
@@ -371,7 +398,7 @@ export default function EventDetailPage() {
           </div>
           <h1 className="text-4xl font-bold leading-tight text-gradient">{event.title}</h1>
           <p className="text-base text-muted-foreground">
-            Hosted by <span className="font-semibold text-foreground">{event.isHost ? "You" : event.host}</span>
+            Hosted by <span className="font-semibold text-foreground">{event.isHost ? "You" : (resolvedHostName || event.host)}</span>
           </p>
         </div>
 
@@ -576,7 +603,7 @@ export default function EventDetailPage() {
             <Button
               onClick={handleShareOnFeed}
               disabled={isSharing}
-              className="w-full h-14 text-base font-bold bg-white text-primary hover:bg-white/90 border-0 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all rounded-xl"
+              className="w-full h-14 text-base font-bold bg-white text-[hsl(265_75%_50%)] hover:bg-white/90 border-0 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all rounded-xl"
             >
               {isSharing ? "Sharing..." : "Share on Feed 📢"}
             </Button>
