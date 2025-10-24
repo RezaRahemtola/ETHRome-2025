@@ -19,7 +19,7 @@ To run the project locally, simply clone the repository and follow these steps
 The following contract addresses are the ones of the deployed version on Base mainnet, feel free to use them or to redeploy the contracts (located in [the contracts folder](./contracts/)).
 - ENS L2Registry: [`0xc02f3b4cbe3431a46a19416211aee7f004d829c3`](https://basescan.org/address/0xc02f3b4cbe3431a46a19416211aee7f004d829c3)
 - ENS L2Registrar: [`0x0A20Ab270Ac8Ffeb026fe5e57Ea31C2e58a686e0`](https://basescan.org/address/0x0A20Ab270Ac8Ffeb026fe5e57Ea31C2e58a686e0)
-- RadunoEventFactory: [`0xc37933Bc35F432375d6EE63a532AA1E3fb2Fb732`](https://basescan.org/address/0xc37933Bc35F432375d6EE63a532AA1E3fb2Fb732)
+- RadunoEventFactory: [`0x46479210569FC32A66B5b3740011167c9D18cdc5`](https://basescan.org/address/0x46479210569FC32A66B5b3740011167c9D18cdc5)
 
 ### Frontend
 
