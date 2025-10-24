@@ -37,6 +37,8 @@ interface GroupConfig {
   label: string;
   /** Description of the group */
   description?: string;
+  /** Date of the event (ISO string) */
+  date?: string;
   /** List of member addresses that should be in this group */
   memberAddresses: string[];
 }
@@ -238,9 +240,9 @@ const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
  * Fetch ENS text records for an event
  *
  * @param label - The event label (e.g., "eventname")
- * @returns Object with nickname and description from ENS, or null if not available
+ * @returns Object with nickname, description, and date from ENS, or null if not available
  */
-async function fetchENSData(label: string): Promise<{ nickname: string | null; description: string | null }> {
+async function fetchENSData(label: string): Promise<{ nickname: string | null; description: string | null; date: string | null }> {
   try {
     // Import namehash dynamically to avoid linter issues
     const { namehash: getNamehash } = await import("viem");
@@ -253,8 +255,8 @@ async function fetchENSData(label: string): Promise<{ nickname: string | null; d
 
     console.log(`    📖 Fetching ENS data for: ${ensName}`);
 
-    // Query the L2Registry for nickname and description in parallel
-    const [nickname, description] = await Promise.all([
+    // Query the L2Registry for nickname, description, and date in parallel
+    const [nickname, description, date] = await Promise.all([
       publicClient.readContract({
         address: L2_REGISTRY_ADDRESS,
         abi: L2_REGISTRY_ABI,
@@ -267,15 +269,22 @@ async function fetchENSData(label: string): Promise<{ nickname: string | null; d
         functionName: "text",
         args: [node, "description"],
       }).catch(() => null),
+      publicClient.readContract({
+        address: L2_REGISTRY_ADDRESS,
+        abi: L2_REGISTRY_ABI,
+        functionName: "text",
+        args: [node, "date"],
+      }).catch(() => null),
     ]);
 
     return {
       nickname: nickname || null,
       description: description || null,
+      date: date || null,
     };
   } catch (error) {
     console.error(`    ⚠️  Error fetching ENS data for ${label}:`, error);
-    return { nickname: null, description: null };
+    return { nickname: null, description: null, date: null };
   }
 }
 
@@ -357,6 +366,7 @@ async function fetchGroupConfigurations(): Promise<GroupConfig[]> {
           name: eventName,
           label: label,
           description: eventDescription,
+          date: ensData.date || undefined,
           memberAddresses,
         });
       } catch (error) {
@@ -727,9 +737,19 @@ function formatEventsForAI(events: GroupConfig[]): string {
   }
 
   return events.map((event, idx) => {
+    const dateStr = event.date ? new Date(event.date).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }) : "Date TBA";
+
     return `${idx + 1}. ${event.name}
    Label: ${event.label}
    Address: ${event.address}
+   Date: ${dateStr}
    Description: ${event.description || "No description available"}
    Number of participants: ${event.memberAddresses.length}`;
   }).join("\n\n");
@@ -764,8 +784,13 @@ async function handleEventRecommendation(userMessage: string, senderAddress: str
     // Format events for AI
     const eventsContext = formatEventsForAI(events);
 
+    // Get current date
+    const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
     // Create AI prompt
     const systemPrompt = `You are a helpful event recommendation assistant for Raduno, a decentralized event management platform on the Base app. Your role is to help users find the best events based on their interests and needs.
+
+Today's date is: ${currentDate}
 
 You have access to the following events:
 
@@ -774,12 +799,16 @@ ${eventsContext}
 When recommending events:
 1. Understand what the user is looking for
 2. Match their interests with available events
-3. Recommend 1-3 most suitable events with their names
-4. Be friendly and conversational
-5. For each recommended event, include the registration link using the event's label: https://raduno.reza.dev/events/<label>
-6. Format it nicely, like: "**Event Name** - Description here. [Register here](https://raduno.reza.dev/events/label)"
+3. IMPORTANT: Check the event dates against today's date (${currentDate}). Do NOT recommend past events for registration. If a user asks about a past event, you can provide information about it but clearly state that it has already happened and they cannot register.
+4. Recommend 1-3 most suitable UPCOMING events with their names
+5. Be friendly and conversational
+6. For each recommended upcoming event, include the registration link using the event's label: https://raduno.reza.dev/events/<label>
+7. Format it nicely, like: "**Event Name** - Description here. Date: [date]. [Register here](https://raduno.reza.dev/events/label)"
 
-Important: Use the event's Label field (not the name) in the URL. The name is for display only.`;
+Important:
+- Use the event's Label field (not the name) in the URL. The name is for display only.
+- Never recommend registration for events that have already passed.
+- If a user asks about a past event, provide the information but make it clear it has already happened.`;
 
     // Call OpenAI API
     console.log(`   Calling OpenAI API...`);
@@ -811,6 +840,7 @@ Important: Use the event's Label field (not the name) in the URL. The name is fo
  * @param eventAddress - The event contract address
  * @param eventName - The event name
  * @param eventLabel - The event label for URL
+ * @param eventDate - The event date (optional, ISO string)
  * @param userAddress - The user's Ethereum address
  * @param conversation - The conversation to send the transaction to
  */
@@ -818,6 +848,7 @@ async function sendRegistrationTransaction(
   eventAddress: string,
   eventName: string,
   eventLabel: string,
+  eventDate: string | undefined,
   userAddress: string,
   conversation: any
 ): Promise<void> {
@@ -825,6 +856,21 @@ async function sendRegistrationTransaction(
     console.log(`\n📝 Preparing registration transaction for ${userAddress.slice(0, 10)}...`);
     console.log(`   Event: ${eventName}`);
     console.log(`   Contract: ${eventAddress}`);
+
+    // Check if the event has already passed
+    if (eventDate) {
+      const eventDateTime = new Date(eventDate);
+      const now = new Date();
+
+      if (!isNaN(eventDateTime.getTime()) && eventDateTime < now) {
+        console.log(`   ⚠️  Event has already passed (${eventDate})`);
+        await conversation.send(
+          `❌ Sorry, but **${eventName}** has already passed. You cannot register for past events.`,
+          ContentTypeMarkdown
+        );
+        return;
+      }
+    }
 
     // Check if user is already registered
     const isAlreadyParticipant = await publicClient.readContract({
@@ -962,13 +1008,19 @@ agent.on("start", async () => {
     `\n⏰ Periodic sync scheduled every ${SYNC_INTERVAL / 1000} seconds`
   );
   console.log("=".repeat(60) + "\n");
+
+  console.log(`\n🎧 Agent is now listening for messages...`);
+  console.log(`Send a DM to ${agent.address} to test!\n`);
 });
 
 // ============================================================================
 // DM Message Handler
 // ============================================================================
 
+console.log("🔧 Registering 'text' event handler...");
+
 agent.on("text", async (ctx) => {
+  console.log("🚨 TEXT EVENT TRIGGERED!");  // Debug: confirm handler is called
   try {
     // Check if this is a DM (not a group message)
     if (!ctx.isDm()) {
@@ -1032,12 +1084,17 @@ Be strict: only respond "REGISTER" if they explicitly indicate they want to regi
 
         // Use AI to select the best event based on user message
         const eventsContext = formatEventsForAI(events);
-        const systemPrompt = `You are an event selection assistant. Based on the user's message, select the MOST SUITABLE event for them.
+        const currentDate = new Date().toISOString().split('T')[0];
+        const systemPrompt = `You are an event selection assistant. Based on the user's message, select the MOST SUITABLE UPCOMING event for them.
+
+Today's date is: ${currentDate}
 
 Available events:
 ${eventsContext}
 
-Respond with ONLY the event's address (42-char hex starting with 0x). Nothing else.`;
+IMPORTANT: Only select events that have NOT passed yet (check the date). Do not select past events.
+
+Respond with ONLY the event's address (42-char hex starting with 0x). Nothing else. If there are no suitable upcoming events, respond with "NONE".`;
 
         const completion = await openai.chat.completions.create({
           model: "gpt-4o-mini",
@@ -1050,6 +1107,17 @@ Respond with ONLY the event's address (42-char hex starting with 0x). Nothing el
         });
 
         const selectedEventAddress = completion.choices[0]?.message?.content?.trim().toLowerCase();
+
+        // Check if AI returned "NONE" (no suitable upcoming events)
+        if (selectedEventAddress === "none") {
+          console.log(`   ℹ️  AI found no suitable upcoming events for registration`);
+          await ctx.conversation.send(
+            "I'm sorry, but there are no suitable upcoming events for you to register for at the moment. The events that match your interests have already passed. Please check back later for new events!",
+            ContentTypeMarkdown
+          );
+          return;
+        }
+
         const selectedEvent = events.find(e => e.address.toLowerCase() === selectedEventAddress) || events[0];
 
         console.log(`   ✅ AI selected event: ${selectedEvent.name}`);
@@ -1059,6 +1127,7 @@ Respond with ONLY the event's address (42-char hex starting with 0x). Nothing el
           selectedEvent.address,
           selectedEvent.name,
           selectedEvent.label,
+          selectedEvent.date,
           senderAddress,
           ctx.conversation
         );
@@ -1083,4 +1152,4 @@ Respond with ONLY the event's address (42-char hex starting with 0x). Nothing el
   }
 });
 
-void agent.start();
+agent.start();
