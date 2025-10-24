@@ -3,6 +3,13 @@
 Raduno ("Gathering" or "Meetup" in Italian) is a fully decentralized event platform (luma-like) available as a miniapp on Base.
 It removes the friction of using multiple platforms for events (Luma to register, Telegram/Discord to communicate, wallet to get POAPs...) while providing a beginner-friendly web3 solution.
 
+Started during the [ETHRome 2025 hackathon](https://ethrome.org), it was awarded 3 prizes for a total of $4500:
+- 🥇 Best use of ENS
+- 🥇 Best use of the XMTP Agent SDK
+- 🥇 Best Base Miniapp - Small business category
+
+The project is now being developed further for a future launch, stay tuned 🚀
+
 ## ⚙️ Installation
 
 To run the project locally, simply clone the repository and follow these steps
