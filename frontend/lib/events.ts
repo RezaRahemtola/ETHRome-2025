@@ -1,5 +1,6 @@
 import { createPublicClient, http, namehash } from "viem";
 import { base } from "wagmi/chains";
+import { getName } from "@coinbase/onchainkit/identity";
 import { CONTRACT_ABI as EVENT_ABI } from "./contracts/event";
 import { CONTRACT_ABI as REGISTRY_ABI, CONTRACT_ADDRESS as REGISTRY_ADDRESS } from "./contracts/registry";
 
@@ -45,7 +46,7 @@ async function fetchRegistryData(ensName: string) {
   const publicClient = getPublicClient();
   const node = namehash(ensName);
 
-  const [nickname, description, category, date, location, host] = await Promise.all([
+  const [nickname, description, category, date, location] = await Promise.all([
     publicClient.readContract({
       address: REGISTRY_ADDRESS as `0x${string}`,
       abi: REGISTRY_ABI,
@@ -75,12 +76,6 @@ async function fetchRegistryData(ensName: string) {
       abi: REGISTRY_ABI,
       functionName: "text",
       args: [node, "location"]
-    }).catch(() => null),
-    publicClient.readContract({
-      address: REGISTRY_ADDRESS as `0x${string}`,
-      abi: REGISTRY_ABI,
-      functionName: "text",
-      args: [node, "host"]
     }).catch(() => null)
   ]);
 
@@ -90,18 +85,17 @@ async function fetchRegistryData(ensName: string) {
     description: description,
     category: category,
     date: date,
-    location: location,
-    host: host
+    location: location
   };
 }
 
 /**
- * Fetch event contract data (label, capacity, participant count)
+ * Fetch event contract data (label, capacity, participant count, owner)
  */
 async function fetchEventContractData(address: `0x${string}`) {
   const publicClient = getPublicClient();
 
-  const [label, capacity, participantCount] = await Promise.all([
+  const [label, capacity, participantCount, owner] = await Promise.all([
     publicClient.readContract({
       address,
       abi: EVENT_ABI,
@@ -116,13 +110,19 @@ async function fetchEventContractData(address: `0x${string}`) {
       address,
       abi: EVENT_ABI,
       functionName: "getParticipantCount"
+    }),
+    publicClient.readContract({
+      address,
+      abi: EVENT_ABI,
+      functionName: "owner"
     })
   ]);
 
   return {
     label: label as string,
     capacity: Number(capacity),
-    participantCount: Number(participantCount)
+    participantCount: Number(participantCount),
+    owner: owner as `0x${string}`
   };
 }
 
@@ -184,7 +184,7 @@ export async function fetchEventByLabel(label: string): Promise<EventData | null
       attendees: 0, // Will be fetched from event contract if address is known
       maxAttendees: 100, // Will be fetched from event contract if address is known
       image: categoryEmojis[registryData.category || "other"] || "🎉",
-      host: registryData.host || "Unknown",
+      host: "Unknown", // Host will be fetched from contract when address is known
       category: registryData.category || "other"
     };
   } catch (error) {
@@ -208,6 +208,21 @@ export async function fetchEventByAddress(address: `0x${string}`): Promise<Event
     const registryData = await fetchRegistryData(ensName);
     const { date, time } = parseEventDate(registryData.date);
 
+    // Resolve owner's basename
+    let hostDisplay: string = contractData.owner;
+    try {
+      const basename = await getName({ address: contractData.owner, chain: base });
+      if (basename) {
+        hostDisplay = basename;
+      } else {
+        // Fallback to shortened address
+        hostDisplay = `${contractData.owner.slice(0, 6)}...${contractData.owner.slice(-4)}`;
+      }
+    } catch (error) {
+      console.error("Error resolving basename for owner:", error);
+      hostDisplay = `${contractData.owner.slice(0, 6)}...${contractData.owner.slice(-4)}`;
+    }
+
     return {
       id: contractData.label,
       title: registryData.nickname || `Event ${address.slice(0, 6)}`,
@@ -218,7 +233,7 @@ export async function fetchEventByAddress(address: `0x${string}`): Promise<Event
       attendees: contractData.participantCount,
       maxAttendees: contractData.capacity,
       image: categoryEmojis[registryData.category || "other"] || "🎉",
-      host: registryData.host || address.slice(0, 6),
+      host: hostDisplay,
       category: registryData.category || "other",
       address
     };

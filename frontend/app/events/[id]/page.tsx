@@ -14,7 +14,6 @@ import { base } from "wagmi/chains";
 import { createPublicClient, encodeFunctionData, http } from "viem";
 import type { TransactionError, TransactionResponseType } from "@coinbase/onchainkit/transaction";
 import { Transaction, TransactionButton } from "@coinbase/onchainkit/transaction";
-import { getName } from "@coinbase/onchainkit/identity";
 
 interface Event extends Omit<EventData, "description"> {
   description: string;
@@ -34,7 +33,6 @@ export default function EventDetailPage() {
   const [isSharing, setIsSharing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [resolvedHostName, setResolvedHostName] = useState<string | null>(null);
 
   const { composeCastAsync } = useComposeCast();
 
@@ -135,31 +133,6 @@ export default function EventDetailPage() {
     }
   }, [setFrameReady, isFrameReady]);
 
-  // Resolve host's basename
-  useEffect(() => {
-    const resolveHostName = async () => {
-      if (!event?.host) return;
-
-      // Check if host is a valid address (starts with 0x and is 42 characters)
-      const isAddress = event.host.startsWith("0x") && event.host.length === 42;
-
-      if (isAddress) {
-        try {
-          const basename = await getName({ address: event.host as `0x${string}`, chain: base });
-          setResolvedHostName(basename || `${event.host.slice(0, 6)}...${event.host.slice(-4)}`);
-        } catch (error) {
-          console.error("Error resolving basename:", error);
-          setResolvedHostName(`${event.host.slice(0, 6)}...${event.host.slice(-4)}`);
-        }
-      } else {
-        // Already a basename or custom name
-        setResolvedHostName(event.host);
-      }
-    };
-
-    resolveHostName();
-  }, [event?.host]);
-
   // Reset modal state when component unmounts or registration status changes
   useEffect(() => {
     return () => {
@@ -182,6 +155,16 @@ export default function EventDetailPage() {
       month: "long",
       day: "numeric"
     });
+  };
+
+  const isEventPast = () => {
+    if (!event) return false;
+
+    // Combine date and time into a single Date object
+    const eventDateTime = new Date(`${event.date}T${event.time}`);
+    const now = new Date();
+
+    return eventDateTime < now;
   };
 
   const handleRegisterSuccess = async (response: TransactionResponseType) => {
@@ -398,7 +381,7 @@ export default function EventDetailPage() {
           </div>
           <h1 className="text-4xl font-bold leading-tight text-gradient">{event.title}</h1>
           <p className="text-base text-muted-foreground">
-            Hosted by <span className="font-semibold text-foreground">{event.isHost ? "You" : (resolvedHostName || event.host)}</span>
+            Hosted by <span className="font-semibold text-foreground">{event.isHost ? "You" : event.host}</span>
           </p>
         </div>
 
@@ -408,11 +391,15 @@ export default function EventDetailPage() {
             <div className="flex items-center gap-4">
               <div
                 className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl flex-shrink-0">
-                ✅
+                {isEventPast() ? "📅" : "✅"}
               </div>
               <div>
-                <div className="font-bold text-lg">You&#39;re registered!</div>
-                <div className="text-sm">We&#39;ll see you there</div>
+                <div className="font-bold text-lg">
+                  {isEventPast() ? "You attended this event" : "You're registered!"}
+                </div>
+                <div className="text-sm">
+                  {isEventPast() ? "Thanks for being part of it" : "We'll see you there"}
+                </div>
               </div>
             </div>
           </div>
@@ -520,7 +507,17 @@ export default function EventDetailPage() {
                 </div>
               )}
 
-              {(!event.isHost || process.env.NEXT_PUBLIC_APP_ENV === "dev") && (
+              {isEventPast() && !event.isHost && (
+                <div className="glass-card rounded-2xl p-5 text-center">
+                  <div className="text-4xl mb-3">⏰</div>
+                  <p className="text-lg font-bold mb-1">This event has ended</p>
+                  <p className="text-sm text-muted-foreground">
+                    Registration is no longer available
+                  </p>
+                </div>
+              )}
+
+              {!isEventPast() && (!event.isHost || process.env.NEXT_PUBLIC_APP_ENV === "dev") && (
                 event.isRegistered ? (
                   <Transaction
                     key="unregister-transaction"
